@@ -144,7 +144,6 @@ def send_email_report(to_email, repo_name, branch, semgrep_count, trivy_count, s
 
     # Conectar a SMTP y enviar
     try:
-        # Usar starttls para conexiones típicas en puerto 587
         server = smtplib.SMTP(smtp_host, smtp_port, timeout=10)
         server.starttls()
         server.login(smtp_user, smtp_pass)
@@ -373,16 +372,16 @@ def generate_semgrep_html(json_data, html_path, repo_name, branch):
 def execute_scan_task(owner, repo_name, clone_url, branch, sha, pusher_email):
     """
     Ejecuta el clonado y análisis de Trivy y Semgrep en segundo plano.
-    Actualiza el estado de commit en Gitea y envía notificaciones por correo.
+    Maneja nomenclatura de archivo incluyendo el owner para evitar colisiones.
     """
-    print(f"[{datetime.now()}] Iniciando escaneo asíncrono para {repo_name} ({branch}) con commit {sha}...")
+    print(f"[{datetime.now()}] Iniciando escaneo asíncrono para {owner}/{repo_name} ({branch}) con commit {sha}...")
     
     # 1. Enviar estado PENDING a Gitea
     post_gitea_status(owner, repo_name, sha, "security/semgrep", "pending", "Ejecutando escaneo SAST de Semgrep...")
     post_gitea_status(owner, repo_name, sha, "security/trivy", "pending", "Ejecutando escaneo de vulnerabilidades/secretos...")
 
     # Ruta del clon temporal
-    local_scan_folder = f"{repo_name}_{branch}"
+    local_scan_folder = f"{owner}_{repo_name}_{branch}"
     scan_path_in_container = os.path.join(SCANS_DIR, local_scan_folder)
     host_scan_path = os.path.join(HOST_SCANS_DIR, local_scan_folder)
 
@@ -401,9 +400,9 @@ def execute_scan_task(owner, repo_name, clone_url, branch, sha, pusher_email):
         # 1. EJECUTAR SEMGREP
         # ------------------
         print("Iniciando escaneo con Semgrep...")
-        semgrep_json_filename = f"{repo_name}-{branch}-semgrep.json"
+        semgrep_json_filename = f"{owner}-{repo_name}-{branch}-semgrep.json"
         semgrep_json_path = os.path.join(scan_path_in_container, semgrep_json_filename)
-        semgrep_html_filename = f"{repo_name}-{branch}-semgrep.html"
+        semgrep_html_filename = f"{owner}-{repo_name}-{branch}-semgrep.html"
         semgrep_html_path = os.path.join(HTML_DIR, semgrep_html_filename)
         target_url_semgrep = f"{EXTERNAL_REPORTS_URL}/{semgrep_html_filename}"
 
@@ -442,9 +441,9 @@ def execute_scan_task(owner, repo_name, clone_url, branch, sha, pusher_email):
         # 2. EJECUTAR TRIVY
         # ------------------
         print("Iniciando escaneo con Trivy...")
-        trivy_json_filename = f"{repo_name}-{branch}-trivy.json"
+        trivy_json_filename = f"{owner}-{repo_name}-{branch}-trivy.json"
         trivy_json_path = os.path.join(scan_path_in_container, trivy_json_filename)
-        trivy_html_filename = f"{repo_name}-{branch}-trivy.html"
+        trivy_html_filename = f"{owner}-{repo_name}-{branch}-trivy.html"
         trivy_html_path = os.path.join(HTML_DIR, trivy_html_filename)
         target_url_trivy = f"{EXTERNAL_REPORTS_URL}/{trivy_html_filename}"
 
@@ -511,7 +510,7 @@ def execute_scan_task(owner, repo_name, clone_url, branch, sha, pusher_email):
                 trivy_path=trivy_html_path
             )
 
-        print(f"[{datetime.now()}] Escaneo asíncrono para {repo_name} ({branch}) finalizado con éxito.")
+        print(f"[{datetime.now()}] Escaneo asíncrono para {owner}/{repo_name} ({branch}) finalizado con éxito.")
 
     except Exception as e:
         print(f"Error general en el proceso de escaneo asíncrono: {e}")
@@ -542,10 +541,8 @@ def webhook():
     # Obtener el correo del desarrollador que hizo push
     pusher_email = data.get('pusher', {}).get('email')
     if not pusher_email and data.get('commits'):
-        # Fallback al autor del último commit si no hay pusher email
         pusher_email = data.get('commits', [{}])[-1].get('author', {}).get('email')
     if not pusher_email:
-        # Fallback genérico si no se encuentra
         pusher_email = "admin@example.com"
 
     # Reemplazar localhost en la URL de clonación para usar la red interna de Docker
@@ -571,30 +568,40 @@ def generate_index_html():
     """
     files = os.listdir(HTML_DIR)
     
-    repo_branch_map = {}
+    # Encontrar las ramas escaneadas agrupadas por repositorio
+    # Formato de archivo: {owner}-{repo_name}-{branch}-semgrep.html
+    repo_branch_map = {} # { owner/repo: { branch: { semgrep_link, trivy_link } } }
     
     for f in files:
         if f.endswith("-semgrep.html") or f.endswith("-trivy.html"):
             is_semgrep = f.endswith("-semgrep.html")
             base = f.replace("-semgrep.html", "").replace("-trivy.html", "")
             
+            # Separar owner, repo, y branch
             parts = base.split('-')
-            if len(parts) >= 2:
+            if len(parts) >= 3:
+                owner = parts[0]
+                repo = parts[1]
+                branch = "-".join(parts[2:])
+                full_repo_name = f"{owner}/{repo}"
+            elif len(parts) == 2:
                 repo = parts[0]
-                branch = "-".join(parts[1:])
+                branch = parts[1]
+                full_repo_name = repo
             else:
                 repo = base
                 branch = "main"
+                full_repo_name = repo
 
-            if repo not in repo_branch_map:
-                repo_branch_map[repo] = {}
-            if branch not in repo_branch_map[repo]:
-                repo_branch_map[repo][branch] = {"semgrep": None, "trivy": None}
+            if full_repo_name not in repo_branch_map:
+                repo_branch_map[full_repo_name] = {}
+            if branch not in repo_branch_map[full_repo_name]:
+                repo_branch_map[full_repo_name][branch] = {"semgrep": None, "trivy": None}
                 
             if is_semgrep:
-                repo_branch_map[repo][branch]["semgrep"] = f
+                repo_branch_map[full_repo_name][branch]["semgrep"] = f
             else:
-                repo_branch_map[repo][branch]["trivy"] = f
+                repo_branch_map[full_repo_name][branch]["trivy"] = f
 
     list_items = ""
     for repo, branches in sorted(repo_branch_map.items()):
