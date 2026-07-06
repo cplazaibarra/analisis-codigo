@@ -4,7 +4,12 @@ import shutil
 import json
 import threading
 import requests
+import smtplib
 from datetime import datetime
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
@@ -47,6 +52,107 @@ def post_gitea_status(owner, repo, sha, context, state, description, target_url=
             print(f"Estado '{state}' enviado correctamente a Gitea para '{context}'")
     except Exception as e:
         print(f"Error de red al actualizar estado en Gitea: {e}")
+
+def send_email_report(to_email, repo_name, branch, semgrep_count, trivy_count, semgrep_path, trivy_path):
+    """
+    Envía un correo con el resumen del push y adjunta los reportes HTML de Semgrep y Trivy.
+    """
+    smtp_host = os.environ.get("SMTP_HOST")
+    smtp_port_str = os.environ.get("SMTP_PORT", "587")
+    smtp_user = os.environ.get("SMTP_USER")
+    smtp_pass = os.environ.get("SMTP_PASS")
+    smtp_from = os.environ.get("SMTP_FROM", smtp_user)
+
+    if not smtp_host or not smtp_user or not smtp_pass or smtp_host == "smtp.example.com":
+        print("Configuración SMTP por defecto o incompleta. Saltando envío de correo.")
+        return
+
+    try:
+        smtp_port = int(smtp_port_str)
+    except ValueError:
+        smtp_port = 587
+
+    print(f"Preparando envío de correo de reporte de seguridad a {to_email}...")
+
+    # Crear mensaje multipart
+    msg = MIMEMultipart()
+    msg['From'] = smtp_from
+    msg['To'] = to_email
+    msg['Subject'] = f"🛡️ Reporte de Seguridad: {repo_name} (rama: {branch})"
+
+    # Definir etiquetas de color según resultados
+    semgrep_color = "#ef4444" if semgrep_count > 0 else "#10b981"
+    trivy_color = "#ef4444" if trivy_count > 0 else "#10b981"
+
+    # Cuerpo del correo en HTML
+    html_body = f"""
+    <html>
+    <body style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #f4f4f5; padding: 20px; color: #1f2937;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <h2 style="color: #0f172a; margin-top: 0; font-size: 24px; border-bottom: 2px solid #f3f4f6; padding-bottom: 15px;">🛡️ Security Scan Report</h2>
+            <p style="font-size: 16px; line-height: 1.5;">Se ha completado el análisis de seguridad automático tras tu último <strong>git push</strong>.</p>
+            
+            <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #f3f4f6;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 15px;">
+                    <tr>
+                        <td style="padding: 6px 0; color: #6b7280; width: 40%;"><strong>Repositorio:</strong></td>
+                        <td style="padding: 6px 0; color: #111827;"><strong>{repo_name}</strong></td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; color: #6b7280;"><strong>Rama:</strong></td>
+                        <td style="padding: 6px 0;"><span style="background-color: #e2e8f0; color: #334155; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-size: 14px;">{branch}</span></td>
+                    </tr>
+                    <tr style="border-top: 1px solid #e5e7eb;">
+                        <td style="padding: 12px 0 6px 0; color: #6b7280;"><strong>Fallas Semgrep (SAST):</strong></td>
+                        <td style="padding: 12px 0 6px 0; font-weight: bold; color: {semgrep_color}; font-size: 16px;">{semgrep_count}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; color: #6b7280;"><strong>Vulnerabilidades Trivy:</strong></td>
+                        <td style="padding: 6px 0; font-weight: bold; color: {trivy_color}; font-size: 16px;">{trivy_count}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <p style="font-size: 14px; color: #4b5563;">Puedes revisar los reportes web interactivos haciendo clic en los botones de abajo o abrir los archivos HTML adjuntos a este correo:</p>
+            
+            <div style="text-align: center; margin: 30px 0 10px 0;">
+                <a href="{EXTERNAL_REPORTS_URL}/{repo_name}-{branch}-semgrep.html" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-right: 10px; display: inline-block; font-size: 14px;">🔍 Reporte Semgrep</a>
+                <a href="{EXTERNAL_REPORTS_URL}/{repo_name}-{branch}-trivy.html" style="background-color: #d97706; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; font-size: 14px;">🛡️ Reporte Trivy</a>
+            </div>
+            
+            <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 30px 0 15px 0;">
+            <p style="font-size: 12px; color: #9ca3af; text-align: center;">Este es un mensaje generado automáticamente por el sistema de auditoría centralizado.</p>
+        </div>
+    </body>
+    </html>
+    """
+    msg.attach(MIMEText(html_body, 'html'))
+
+    # Adjuntar reportes como archivos HTML
+    for path, filename in [(semgrep_path, f"{repo_name}-{branch}-semgrep.html"), 
+                           (trivy_path, f"{repo_name}-{branch}-trivy.html")]:
+        if path and os.path.exists(path):
+            try:
+                with open(path, "rb") as attachment:
+                    part = MIMEBase("application", "octet-stream")
+                    part.set_payload(attachment.read())
+                    encoders.encode_base64(part)
+                    part.add_header("Content-Disposition", f"attachment; filename= {filename}")
+                    msg.attach(part)
+            except Exception as ex_attach:
+                print(f"Error al adjuntar archivo {filename}: {ex_attach}")
+
+    # Conectar a SMTP y enviar
+    try:
+        # Usar starttls para conexiones típicas en puerto 587
+        server = smtplib.SMTP(smtp_host, smtp_port, timeout=10)
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(smtp_from, to_email, msg.as_string())
+        server.quit()
+        print(f"Correo de reporte enviado correctamente a {to_email}")
+    except Exception as e:
+        print(f"Error al enviar correo SMTP a {to_email}: {e}")
 
 def generate_semgrep_html(json_data, html_path, repo_name, branch):
     """
@@ -264,10 +370,10 @@ def generate_semgrep_html(json_data, html_path, repo_name, branch):
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(html_content)
 
-def execute_scan_task(owner, repo_name, clone_url, branch, sha):
+def execute_scan_task(owner, repo_name, clone_url, branch, sha, pusher_email):
     """
     Ejecuta el clonado y análisis de Trivy y Semgrep en segundo plano.
-    Actualiza el estado de commit en Gitea en cada paso.
+    Actualiza el estado de commit en Gitea y envía notificaciones por correo.
     """
     print(f"[{datetime.now()}] Iniciando escaneo asíncrono para {repo_name} ({branch}) con commit {sha}...")
     
@@ -301,7 +407,7 @@ def execute_scan_task(owner, repo_name, clone_url, branch, sha):
         semgrep_html_path = os.path.join(HTML_DIR, semgrep_html_filename)
         target_url_semgrep = f"{EXTERNAL_REPORTS_URL}/{semgrep_html_filename}"
 
-        # Ejecutamos semgrep en Docker y guardamos el reporte en formato JSON
+        # Ejecutamos semgrep
         subprocess.run([
             "docker", "run", "--rm",
             "-v", f"{host_scan_path}:/src",
@@ -309,7 +415,7 @@ def execute_scan_task(owner, repo_name, clone_url, branch, sha):
             "semgrep", "scan", "--config=auto", "--json", "-o", f"/src/{semgrep_json_filename}"
         ], check=False)
 
-        # Convertir JSON de Semgrep a HTML si existe y contar incidencias
+        # Convertir JSON de Semgrep a HTML y contar incidencias
         semgrep_findings = 0
         if os.path.exists(semgrep_json_path):
             with open(semgrep_json_path, "r", encoding="utf-8") as sj:
@@ -342,7 +448,7 @@ def execute_scan_task(owner, repo_name, clone_url, branch, sha):
         trivy_html_path = os.path.join(HTML_DIR, trivy_html_filename)
         target_url_trivy = f"{EXTERNAL_REPORTS_URL}/{trivy_html_filename}"
 
-        # Ejecutamos Trivy en formato JSON para contar las vulnerabilidades
+        # Ejecutamos Trivy JSON
         subprocess.run([
             "docker", "run", "--rm",
             "-v", f"{host_scan_path}:/apps",
@@ -351,7 +457,6 @@ def execute_scan_task(owner, repo_name, clone_url, branch, sha):
             "fs", "--format", "json", "-o", f"/apps/{trivy_json_filename}", "/apps"
         ], check=False)
 
-        # Contar vulnerabilidades y secretos de Trivy
         trivy_vulns = 0
         if os.path.exists(trivy_json_path):
             try:
@@ -363,7 +468,7 @@ def execute_scan_task(owner, repo_name, clone_url, branch, sha):
             except Exception as ex_tjson:
                 print(f"Error al parsear JSON de Trivy: {ex_tjson}")
 
-        # Ejecutamos Trivy para generar el HTML
+        # Ejecutamos Trivy HTML
         subprocess.run([
             "docker", "run", "--rm",
             "-v", f"{host_scan_path}:/apps",
@@ -389,8 +494,23 @@ def execute_scan_task(owner, repo_name, clone_url, branch, sha):
         else:
             post_gitea_status(owner, repo_name, sha, "security/trivy", "error", "No se generó reporte de Trivy.")
 
-        # Actualizar el index.html general
+        # Actualizar index.html
         generate_index_html()
+
+        # ------------------
+        # 3. ENVIAR CORREO
+        # ------------------
+        if pusher_email:
+            send_email_report(
+                to_email=pusher_email,
+                repo_name=repo_name,
+                branch=branch,
+                semgrep_count=semgrep_findings,
+                trivy_count=trivy_vulns,
+                semgrep_path=semgrep_html_path,
+                trivy_path=trivy_html_path
+            )
+
         print(f"[{datetime.now()}] Escaneo asíncrono para {repo_name} ({branch}) finalizado con éxito.")
 
     except Exception as e:
@@ -398,7 +518,6 @@ def execute_scan_task(owner, repo_name, clone_url, branch, sha):
         post_gitea_status(owner, repo_name, sha, "security/semgrep", "error", f"Error en pipeline: {str(e)[:80]}")
         post_gitea_status(owner, repo_name, sha, "security/trivy", "error", f"Error en pipeline: {str(e)[:80]}")
     finally:
-        # Limpieza de los archivos clonados después de los análisis
         if os.path.exists(scan_path_in_container):
             shutil.rmtree(scan_path_in_container)
 
@@ -414,13 +533,20 @@ def webhook():
     ref = data.get('ref', 'refs/heads/main')
     branch = ref.split('/')[-1]
     
-    # Obtener el owner
     owner = data.get('repository', {}).get('owner', {}).get('username')
     if not owner:
         owner = data.get('repository', {}).get('owner', {}).get('login', 'gitea_admin')
 
-    # Obtener el hash del commit del push
     sha = data.get('after')
+
+    # Obtener el correo del desarrollador que hizo push
+    pusher_email = data.get('pusher', {}).get('email')
+    if not pusher_email and data.get('commits'):
+        # Fallback al autor del último commit si no hay pusher email
+        pusher_email = data.get('commits', [{}])[-1].get('author', {}).get('email')
+    if not pusher_email:
+        # Fallback genérico si no se encuentra
+        pusher_email = "admin@example.com"
 
     # Reemplazar localhost en la URL de clonación para usar la red interna de Docker
     if clone_url:
@@ -431,7 +557,7 @@ def webhook():
         return jsonify({"error": "Invalid repository details"}), 400
 
     # Iniciar la tarea de escaneo en un hilo de fondo (asíncrono)
-    thread = threading.Thread(target=execute_scan_task, args=(owner, repo_name, clone_url, branch, sha))
+    thread = threading.Thread(target=execute_scan_task, args=(owner, repo_name, clone_url, branch, sha, pusher_email))
     thread.start()
 
     return jsonify({
@@ -445,19 +571,13 @@ def generate_index_html():
     """
     files = os.listdir(HTML_DIR)
     
-    # Encontrar las ramas escaneadas agrupadas por repositorio
-    # Formato de archivo: {repo_name}-{branch}-semgrep.html
-    repo_branch_map = {} # { repo: { branch: { semgrep_link, trivy_link } } }
+    repo_branch_map = {}
     
     for f in files:
         if f.endswith("-semgrep.html") or f.endswith("-trivy.html"):
             is_semgrep = f.endswith("-semgrep.html")
             base = f.replace("-semgrep.html", "").replace("-trivy.html", "")
             
-            # Intentar separar repositorio de rama (asume formato simple repo-rama)
-            # En un entorno real, podemos parsear de forma más estricta.
-            # Por simplicidad, si el nombre contiene un guión, asumimos que la última parte (o partes)
-            # es la rama.
             parts = base.split('-')
             if len(parts) >= 2:
                 repo = parts[0]
