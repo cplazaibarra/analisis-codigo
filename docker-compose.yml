@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  gitea:
+    image: gitea/gitea:1.21
+    container_name: gitea-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+      - "2222:22"
+    volumes:
+      - ./gitea-data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - security-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: security-reports-web
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    volumes:
+      - ./html:/usr/share/nginx/html:ro
+    networks:
+      - security-net
+
+  receiver:
+    build: ./receiver
+    container_name: webhook-receiver
+    restart: unless-stopped
+    ports:
+      - "5005:5000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./html:/app/html
+      - ./scans:/app/scans
+    environment:
+      - GITEA_URL=http://gitea-server:3000
+      - HOST_SCANS_DIR=/home/cplaza/.gemini/antigravity/scratch/security-scanners/scans
+      - GITEA_ADMIN_USER=gitea_admin
+      - GITEA_ADMIN_PASS=AdminPassword123
+      - EXTERNAL_REPORTS_URL=http://localhost:8081
+    networks:
+      - security-net
+    depends_on:
+      - gitea
+
+networks:
+  security-net:
+    driver: bridge

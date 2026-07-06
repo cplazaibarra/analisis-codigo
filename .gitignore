@@ -1,0 +1,21 @@
+# Gitea data
+gitea-data/
+
+# Local scan clones
+scans/
+test-repo-local/
+
+# Generated HTML reports
+html/*.html
+!html/index.html
+
+# Trivy cache
+trivy-cache/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+venv/
+.venv/
