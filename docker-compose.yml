@@ -1,19 +1,27 @@
 version: '3.8'
 
 services:
-  gitea:
-    image: gitea/gitea:1.21
-    container_name: gitea-server
+  gitlab:
+    image: gitlab/gitlab-ce:18.8.4-ce.0
+    container_name: gitlab-server
     restart: unless-stopped
+    hostname: 'localhost'
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://localhost:8090'
+        # Reducir consumo de memoria para pruebas locales
+        postgresql['shared_buffers'] = '256MB'
+        sidekiq['max_concurrency'] = 10
+        prometheus_monitoring['enable'] = false
     ports:
-      - "3000:3000"
-      - "2222:22"
+      - "8090:8090"
+      - "2224:22"
     volumes:
-      - ./gitea-data:/data
-      - /etc/timezone:/etc/timezone:ro
-      - /etc/localtime:/etc/localtime:ro
+      - ./gitlab/config:/etc/gitlab
+      - ./gitlab/logs:/var/log/gitlab
+      - ./gitlab/data:/var/opt/gitlab
     networks:
-      - security-net
+      - gitlab-net
 
   nginx:
     image: nginx:alpine
@@ -24,35 +32,20 @@ services:
     volumes:
       - ./html:/usr/share/nginx/html:ro
     networks:
-      - security-net
+      - gitlab-net
 
-  receiver:
-    build: ./receiver
-    container_name: webhook-receiver
+  gitlab-runner:
+    image: gitlab/gitlab-runner:latest
+    container_name: gitlab-runner
     restart: unless-stopped
-    ports:
-      - "5005:5000"
     volumes:
+      - ./gitlab-runner/config:/etc/gitlab-runner
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./html:/app/html
-      - ./scans:/app/scans
-    environment:
-      - GITEA_URL=http://gitea-server:3000
-      - HOST_SCANS_DIR=/home/cplaza/.gemini/antigravity/scratch/security-scanners/scans
-      - GITEA_ADMIN_USER=gitea_admin
-      - GITEA_ADMIN_PASS=AdminPassword123
-      - EXTERNAL_REPORTS_URL=http://localhost:8081
-      # Configuración de Correo (SMTP)
-      - SMTP_HOST=smtp.example.com
-      - SMTP_PORT=587
-      - SMTP_USER=security-alerts@example.com
-      - SMTP_PASS=YourSmtpPasswordOrToken
-      - SMTP_FROM=security-alerts@example.com
     networks:
-      - security-net
+      - gitlab-net
     depends_on:
-      - gitea
+      - gitlab
 
 networks:
-  security-net:
+  gitlab-net:
     driver: bridge

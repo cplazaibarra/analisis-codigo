@@ -1,12 +1,15 @@
-# Gitea data
+# Gitea and GitLab data
 gitea-data/
+gitlab/
+gitlab-runner/
 
-# Local scan clones
+# Local scan clones and test directories
 scans/
-test-repo-local/
+*-local/
 
-# Generated HTML reports
+# Generated HTML reports and structures
 html/*.html
+html/reports/
 !html/index.html
 
 # Trivy cache

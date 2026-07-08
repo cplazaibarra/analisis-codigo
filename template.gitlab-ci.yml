@@ -1,0 +1,51 @@
+# Plantilla de GitLab CI/CD para Análisis de Seguridad con Trivy y Semgrep
+# Copia este archivo como '.gitlab-ci.yml' en la raíz de tu proyecto.
+
+stages:
+  - security
+
+semgrep-sast:
+  stage: security
+  image:
+    name: returntocorp/semgrep:latest
+    entrypoint: [""]
+  tags:
+    - docker
+  script:
+    # 1. Asegurar la creación de la carpeta compartida de reportes
+    - mkdir -p /app/html/reports/${CI_PROJECT_NAME}/${CI_COMMIT_REF_NAME}
+    # 2. Ejecutar Semgrep guardando el JSON directamente en el volumen compartido
+    - semgrep scan --config auto --json -o /app/html/reports/${CI_PROJECT_NAME}/${CI_COMMIT_REF_NAME}/semgrep.json .
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+trivy-scan:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  tags:
+    - docker
+  script:
+    # 1. Asegurar la creación de la carpeta compartida de reportes
+    - mkdir -p /app/html/reports/${CI_PROJECT_NAME}/${CI_COMMIT_REF_NAME}
+    # 2. Ejecutar Trivy guardando el reporte HTML usando el template oficial del contenedor
+    - trivy fs --format template --template "@/contrib/html.tpl" -o /app/html/reports/${CI_PROJECT_NAME}/${CI_COMMIT_REF_NAME}/trivy.html .
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+update-dashboard:
+  stage: security
+  image: python:alpine
+  tags:
+    - docker
+  script:
+    # Ejecuta el script centralizador para generar el HTML del portal de Nginx
+    - python3 /app/html/generate_index.py
+  needs:
+    - semgrep-sast
+    - trivy-scan
+  rules:
+    - if: $CI_COMMIT_BRANCH
