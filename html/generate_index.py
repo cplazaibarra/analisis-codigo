@@ -1,4 +1,5 @@
 import os
+import re
 import json
 from datetime import datetime
 
@@ -72,6 +73,11 @@ def generate_semgrep_html(json_data, html_path, repo_name, branch):
                 background-color: #0f172a;
                 color: #e2e8f0;
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                margin: 0;
+            }}
+            .navbar-custom {{
+                background-color: #1e293b;
+                border-bottom: 1px solid #334155;
             }}
             .card-stat {{
                 border: none;
@@ -118,7 +124,15 @@ def generate_semgrep_html(json_data, html_path, repo_name, branch):
         </style>
     </head>
     <body>
-        <div class="container py-5">
+        <!-- Barra de Navegación con Botón Volver -->
+        <nav class="navbar navbar-custom py-3 mb-4">
+            <div class="container d-flex justify-content-between align-items-center">
+                <a href="/index.html" class="btn btn-outline-info">⬅️ Volver al Dashboard</a>
+                <span class="text-white fw-bold">Reporte Semgrep SAST</span>
+            </div>
+        </nav>
+
+        <div class="container py-2">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div>
                     <h1 class="fw-bold">Reporte Semgrep (SAST)</h1>
@@ -218,11 +232,38 @@ def generate_semgrep_html(json_data, html_path, repo_name, branch):
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(html_content)
 
+def inject_trivy_back_button(html_path, repo_name, branch):
+    if not os.path.exists(html_path):
+        return
+        
+    try:
+        with open(html_path, "r", encoding="utf-8") as f:
+            content = f.read()
+            
+        # Evitar inyección doble
+        if "Volver al Dashboard" in content:
+            return
+            
+        # Barra de navegación para Trivy (diseño adaptado al tema claro de Trivy)
+        nav_html = f"""
+<div style="background-color: #0f172a; color: #f8fafc; padding: 12px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #38bdf8;">
+    <a href="/index.html" style="color: #38bdf8; text-decoration: none; font-weight: bold; font-size: 14px; border: 1px solid #38bdf8; padding: 6px 14px; border-radius: 4px; display: inline-flex; align-items: center; transition: all 0.2s;">⬅️ Volver al Dashboard</a>
+    <span style="font-weight: bold; font-size: 16px; letter-spacing: 0.5px;">🛡️ Reporte de Vulnerabilidades (Trivy) — {repo_name} ({branch})</span>
+</div>
+"""
+        # Inyectar inmediatamente después del tag <body> (case-insensitive)
+        modified_content = re.sub(r'(<body[^>]*>)', r'\1\n' + nav_html, content, flags=re.IGNORECASE, count=1)
+        
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(modified_content)
+        print(f"Barra de navegación inyectada con éxito en Trivy: {html_path}")
+    except Exception as e:
+        print(f"Error al inyectar barra en Trivy {html_path}: {e}")
+
 def process_semgrep_json_files():
     if not os.path.exists(REPORTS_DIR):
         return
 
-    # Buscar JSON en reports/{repo}/{branch}/semgrep.json
     for repo in os.listdir(REPORTS_DIR):
         repo_path = os.path.join(REPORTS_DIR, repo)
         if not os.path.isdir(repo_path):
@@ -245,6 +286,25 @@ def process_semgrep_json_files():
                     print(f"Reporte HTML de Semgrep generado en: {html_path}")
                 except Exception as e:
                     print(f"Error al procesar JSON {json_path}: {e}")
+
+def process_trivy_html_files():
+    if not os.path.exists(REPORTS_DIR):
+        return
+
+    # Buscar HTML de Trivy en reports/{repo}/{branch}/trivy.html
+    for repo in os.listdir(REPORTS_DIR):
+        repo_path = os.path.join(REPORTS_DIR, repo)
+        if not os.path.isdir(repo_path):
+            continue
+            
+        for branch in os.listdir(repo_path):
+            branch_path = os.path.join(repo_path, branch)
+            if not os.path.isdir(branch_path):
+                continue
+                
+            trivy_html = os.path.join(branch_path, "trivy.html")
+            if os.path.exists(trivy_html):
+                inject_trivy_back_button(trivy_html, repo, branch)
 
 def generate_index_html():
     repo_branch_map = {}
@@ -297,10 +357,10 @@ def generate_index_html():
                                 <tr>
                                     <td><span class="badge bg-dark px-3 py-2">{branch}</span></td>
                                     <td>
-                                        {f'<a href="{semgrep_link}" class="btn btn-primary btn-sm" target="_blank">🔍 Ver Reporte</a>' if semgrep_link else '<span class="text-muted">No generado</span>'}
+                                        {f'<a href="{semgrep_link}" class="btn btn-primary btn-sm">🔍 Ver Reporte</a>' if semgrep_link else '<span class="text-muted">No generado</span>'}
                                     </td>
                                     <td>
-                                        {f'<a href="{trivy_link}" class="btn btn-warning text-dark btn-sm fw-bold" target="_blank">🛡️ Ver Reporte</a>' if trivy_link else '<span class="text-muted">No generado</span>'}
+                                        {f'<a href="{trivy_link}" class="btn btn-warning text-dark btn-sm fw-bold">🛡️ Ver Reporte</a>' if trivy_link else '<span class="text-muted">No generado</span>'}
                                     </td>
                                 </tr>
             """
@@ -370,4 +430,5 @@ def generate_index_html():
 
 if __name__ == '__main__':
     process_semgrep_json_files()
+    process_trivy_html_files()
     generate_index_html()
