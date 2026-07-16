@@ -153,12 +153,18 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav ms-auto align-items-center">
                     <li class="nav-item">
                         <a class="nav-link" href="/">Dashboard</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link active" href="/settings">Configuración</a>
+                    </li>
+                    <li class="nav-item ms-3">
+                        <span class="navbar-text text-white-50 small me-2">👤 {{ session.username }}</span>
+                    </li>
+                    <li class="nav-item">
+                        <a class="btn btn-sm btn-outline-danger" href="/logout">Cerrar Sesión</a>
                     </li>
                 </ul>
             </div>
@@ -240,6 +246,123 @@
                         </div>
                         {% endfor %}
                     {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <!-- PANEL: CONFIGURACIÓN LDAP -->
+            <div class="col-lg-5">
+                <div class="settings-card">
+                    <h3 class="fw-bold mb-4">🔑 Configuración de LDAP</h3>
+                    <form action="/settings/ldap/update" method="POST">
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="enabled" name="enabled" {% if ldap_config.enabled %}checked{% endif %}>
+                            <label class="form-check-label text-white fw-bold" for="enabled">Habilitar Autenticación LDAP</label>
+                        </div>
+                        <div class="mb-3">
+                            <label for="server_url" class="form-label">Servidor LDAP (IP / URL)</label>
+                            <input type="text" class="form-control" id="server_url" name="server_url" value="{{ ldap_config.server_url }}" placeholder="ldap://172.27.103.42" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="port" class="form-label">Puerto</label>
+                            <input type="number" class="form-control" id="port" name="port" value="{{ ldap_config.port }}" placeholder="389" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="bind_dn" class="form-label">Bind DN (Usuario Búsqueda)</label>
+                            <input type="text" class="form-control" id="bind_dn" name="bind_dn" value="{{ ldap_config.bind_dn }}" placeholder="cn=admin,dc=example,dc=com" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="bind_password" class="form-label">Contraseña Bind DN</label>
+                            <input type="password" class="form-control" id="bind_password" name="bind_password" placeholder="Dejar en blanco para no modificar">
+                        </div>
+                        <div class="mb-3">
+                            <label for="search_base" class="form-label">Base de Búsqueda (Search Base)</label>
+                            <input type="text" class="form-control" id="search_base" name="search_base" value="{{ ldap_config.search_base }}" placeholder="dc=example,dc=com" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="user_filter" class="form-label">Filtro de Usuario</label>
+                            <input type="text" class="form-control" id="user_filter" name="user_filter" value="{{ ldap_config.user_filter }}" placeholder="(uid={username})" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="required_group" class="form-label">Grupo LDAP Requerido (Acceso a Reportes)</label>
+                            <input type="text" class="form-control" id="required_group" name="required_group" value="{{ ldap_config.required_group }}" placeholder="git" required>
+                            <small class="text-muted d-block mt-1">Solo usuarios miembros de este grupo tendrán acceso al portal.</small>
+                        </div>
+                        <button type="submit" class="btn btn-custom-primary w-100">💾 Guardar Configuración LDAP</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- PANEL: LISTA DE USUARIOS -->
+            <div class="col-lg-7">
+                <div class="settings-card">
+                    <h3 class="fw-bold mb-4">👥 Administrar Usuarios Locales</h3>
+                    
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="fw-bold text-white mb-3">Crear Nuevo Usuario Local</h5>
+                            <form action="/settings/user/add" method="POST" class="row g-3">
+                                <div class="col-md-4">
+                                    <input type="text" class="form-control" name="username" placeholder="Usuario" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="password" class="form-control" name="password" placeholder="Contraseña" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="email" class="form-control" name="email" placeholder="Email (Opcional)">
+                                </div>
+                                <div class="col-12 d-flex justify-content-between align-items-center">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="is_admin" name="is_admin">
+                                        <label class="form-check-label text-muted" for="is_admin">Es Administrador</label>
+                                    </div>
+                                    <button type="submit" class="btn btn-sm btn-custom-primary">➕ Crear Usuario</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <h5 class="fw-bold text-white mb-3">Lista de Usuarios</h5>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th>Origen</th>
+                                    <th>Rol</th>
+                                    <th class="text-end">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for u in users %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold text-white">{{ u.username }}</div>
+                                        <small class="text-muted">{{ u.email or 'Sin email' }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if u.auth_source == 'local' %}bg-primary{% else %}bg-info text-dark{% endif %}">
+                                            {{ u.auth_source.upper() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="text-secondary">{% if u.is_admin %}Administrador{% else %}Usuario{% endif %}</span>
+                                    </td>
+                                    <td class="text-end">
+                                        {% if u.username != session.username %}
+                                        <form action="/settings/user/delete/{{ u.id }}" method="POST" onsubmit="return confirm('¿Seguro que deseas eliminar a este usuario?');" style="display:inline;">
+                                            <button type="submit" class="btn btn-sm btn-danger-custom">🗑️</button>
+                                        </form>
+                                        {% else %}
+                                        <span class="text-muted small">Tú</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

@@ -1,5 +1,6 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 import datetime
 from scanner import scan_project_repository
@@ -12,6 +13,26 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 # --- MODELOS DE BASE DE DATOS ---
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=True) # None para LDAP
+    email = db.Column(db.String(255))
+    auth_source = db.Column(db.String(50), default="local") # local, ldap
+    is_admin = db.Column(db.Boolean, default=False)
+
+class LdapConfig(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    enabled = db.Column(db.Boolean, default=False)
+    server_url = db.Column(db.String(255), nullable=False) # ej: ldap://127.0.0.1
+    port = db.Column(db.Integer, default=389)
+    bind_dn = db.Column(db.String(255))
+    bind_password = db.Column(db.String(255))
+    search_base = db.Column(db.String(255))
+    user_filter = db.Column(db.String(255), default="(uid={username})")
+    required_group = db.Column(db.String(255), default="git")
+
 
 class GitLabIntegration(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -48,6 +69,209 @@ class Finding(db.Model):
     project = db.relationship('Project', backref=db.backref('findings', cascade="all, delete-orphan"))
 
 # --- RUTAS DE LA APLICACIÓN ---
+
+# Helper: Autenticación LDAP con validación de grupo
+def authenticate_ldap(username, password, config):
+    try:
+        import ldap3
+        server = ldap3.Server(config.server_url, port=config.port, use_ssl=False, get_info=ldap3.ALL, connect_timeout=5)
+        conn = ldap3.Connection(server, user=config.bind_dn, password=config.bind_password, auto_bind=True)
+        
+        search_filter = config.user_filter.replace('{username}', username)
+        conn.search(
+            search_base=config.search_base,
+            search_filter=search_filter,
+            attributes=['mail', 'cn']
+        )
+        
+        if not conn.entries:
+            return False, "Usuario no encontrado en el directorio LDAP"
+            
+        user_dn = conn.entries[0].entry_dn
+        email = str(conn.entries[0].mail) if 'mail' in conn.entries[0] else f"{username}@ldap.local"
+        
+        # Validar pertenencia al grupo requerido si está configurado
+        if config.required_group:
+            group_filter = f"(|(cn={config.required_group})(dn={config.required_group}))"
+            conn.search(
+                search_base=config.search_base,
+                search_filter=group_filter,
+                attributes=['member', 'uniqueMember']
+            )
+            is_member = False
+            for entry in conn.entries:
+                members = []
+                if 'member' in entry:
+                    members.extend([str(m).lower() for m in entry.member])
+                if 'uniqueMember' in entry:
+                    members.extend([str(m).lower() for m in entry.uniqueMember])
+                if user_dn.lower() in members:
+                    is_member = True
+                    break
+            
+            # Segunda comprobación: buscar en memberOf del usuario
+            if not is_member:
+                conn.search(search_base=user_dn, search_filter="(objectClass=*)", attributes=['memberOf'])
+                if conn.entries and 'memberOf' in conn.entries[0]:
+                    group_dns = [str(g).lower() for g in conn.entries[0].memberOf]
+                    for g_dn in group_dns:
+                        if config.required_group.lower() in g_dn:
+                            is_member = True
+                            break
+            
+            if not is_member:
+                return False, f"El usuario no pertenece al grupo de LDAP requerido: '{config.required_group}'"
+        
+        user_conn = ldap3.Connection(server, user=user_dn, password=password)
+        if user_conn.bind():
+            return True, email
+        else:
+            return False, "Contraseña de LDAP incorrecta"
+    except Exception as e:
+        return False, f"Error en conexión LDAP: {str(e)}"
+
+# Hook: Requerir Login en rutas protegidas
+@app.before_request
+def require_login():
+    allowed_endpoints = ['login', 'static', 'api_findings']
+    if request.endpoint in allowed_endpoints:
+        return
+    if not session.get('user_id'):
+        if request.path.startswith('/static/'):
+            return
+        return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if session.get('user_id'):
+        return redirect(url_for('index'))
+        
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        user = User.query.filter_by(username=username).first()
+        
+        # 1. Intentar autenticación local
+        if user and user.auth_source == 'local':
+            if check_password_hash(user.password_hash, password):
+                session['user_id'] = user.id
+                session['username'] = user.username
+                session['is_admin'] = user.is_admin
+                flash("Sesión iniciada correctamente", "success")
+                return redirect(url_for('index'))
+            else:
+                flash("Contraseña incorrecta", "danger")
+                return render_template('login.html')
+        
+        # 2. Intentar autenticación LDAP
+        ldap_config = LdapConfig.query.first()
+        if ldap_config and ldap_config.enabled:
+            success, result = authenticate_ldap(username, password, ldap_config)
+            if success:
+                if not user:
+                    user = User(
+                        username=username,
+                        auth_source='ldap',
+                        email=result,
+                        is_admin=False
+                    )
+                    db.session.add(user)
+                    db.session.commit()
+                
+                session['user_id'] = user.id
+                session['username'] = user.username
+                session['is_admin'] = user.is_admin
+                flash("Sesión iniciada correctamente vía LDAP", "success")
+                return redirect(url_for('index'))
+            else:
+                flash(f"Error de autenticación: {result}", "danger")
+                return render_template('login.html')
+                
+        flash("Usuario no encontrado o autenticación fallida", "danger")
+        
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash("Sesión cerrada con éxito", "info")
+    return redirect(url_for('login'))
+
+@app.route('/settings/ldap/update', methods=['POST'])
+def update_ldap_config():
+    if not session.get('is_admin'):
+        flash("Solo administradores pueden realizar esta acción", "danger")
+        return redirect(url_for('settings'))
+        
+    config = LdapConfig.query.first()
+    if not config:
+        config = LdapConfig()
+        db.session.add(config)
+        
+    config.enabled = 'enabled' in request.form
+    config.server_url = request.form.get('server_url')
+    config.port = int(request.form.get('port', 389))
+    config.bind_dn = request.form.get('bind_dn')
+    
+    new_bind_password = request.form.get('bind_password')
+    if new_bind_password:
+        config.bind_password = new_bind_password
+        
+    config.search_base = request.form.get('search_base')
+    config.user_filter = request.form.get('user_filter', '(uid={username})')
+    config.required_group = request.form.get('required_group')
+    
+    db.session.commit()
+    flash("Configuración LDAP guardada con éxito", "success")
+    return redirect(url_for('settings'))
+
+@app.route('/settings/user/add', methods=['POST'])
+def add_local_user():
+    if not session.get('is_admin'):
+        flash("Solo administradores pueden realizar esta acción", "danger")
+        return redirect(url_for('settings'))
+        
+    username = request.form.get('username')
+    password = request.form.get('password')
+    email = request.form.get('email')
+    is_admin = 'is_admin' in request.form
+    
+    if not username or not password:
+        flash("Usuario y contraseña son obligatorios", "danger")
+        return redirect(url_for('settings'))
+        
+    if User.query.filter_by(username=username).first():
+        flash("El nombre de usuario ya está registrado", "danger")
+        return redirect(url_for('settings'))
+        
+    new_user = User(
+        username=username,
+        password_hash=generate_password_hash(password),
+        email=email,
+        auth_source='local',
+        is_admin=is_admin
+    )
+    db.session.add(new_user)
+    db.session.commit()
+    flash(f"Usuario {username} creado con éxito", "success")
+    return redirect(url_for('settings'))
+
+@app.route('/settings/user/delete/<int:id>', methods=['POST'])
+def delete_local_user(id):
+    if not session.get('is_admin'):
+        flash("Solo administradores pueden realizar esta acción", "danger")
+        return redirect(url_for('settings'))
+        
+    user = User.query.get_or_404(id)
+    if user.id == session.get('user_id'):
+        flash("No puedes eliminar tu propio usuario administrador", "danger")
+        return redirect(url_for('settings'))
+        
+    db.session.delete(user)
+    db.session.commit()
+    flash("Usuario eliminado", "info")
+    return redirect(url_for('settings'))
 
 @app.route('/')
 def index():
@@ -95,7 +319,12 @@ def index():
 @app.route('/settings')
 def settings():
     integrations = GitLabIntegration.query.all()
-    return render_template('settings.html', integrations=integrations)
+    users = User.query.all()
+    ldap_config = LdapConfig.query.first()
+    return render_template('settings.html', 
+                           integrations=integrations,
+                           users=users,
+                           ldap_config=ldap_config)
 
 @app.route('/settings/integration/add', methods=['POST'])
 def add_integration():
@@ -362,4 +591,41 @@ def delete_project(id):
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        # Migración en caliente para agregar columnas si no existen
+        try:
+            db.session.execute(db.text("ALTER TABLE ldap_config ADD COLUMN required_group VARCHAR(255) DEFAULT 'git'"))
+            db.session.commit()
+            print("Columna 'required_group' agregada con éxito")
+        except Exception:
+            db.session.rollback()
+            
+        # Inicializar usuario admin local
+        if not User.query.filter_by(username='admin').first():
+            admin = User(
+                username='admin',
+                password_hash=generate_password_hash('admin'),
+                email='admin@scan-code.local',
+                auth_source='local',
+                is_admin=True
+            )
+            db.session.add(admin)
+            db.session.commit()
+            print("Creado usuario admin por defecto")
+            
+        # Inicializar LdapConfig si no existe
+        if not LdapConfig.query.first():
+            ldap_conf = LdapConfig(
+                enabled=False,
+                server_url="ldap://127.0.0.1",
+                port=389,
+                bind_dn="cn=admin,dc=example,dc=com",
+                bind_password="admin",
+                search_base="dc=example,dc=com",
+                user_filter="(uid={username})",
+                required_group="git"
+            )
+            db.session.add(ldap_conf)
+            db.session.commit()
+            print("Configuración LDAP inicializada")
+            
     app.run(host='0.0.0.0', port=5000, debug=True)
