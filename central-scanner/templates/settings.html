@@ -274,7 +274,7 @@
                         </div>
                         <div class="mb-3">
                             <label for="bind_password" class="form-label">Contraseña Bind DN</label>
-                            <input type="password" class="form-control" id="bind_password" name="bind_password" placeholder="Dejar en blanco para no modificar">
+                            <input type="password" class="form-control" id="bind_password" name="bind_password" placeholder="{% if ldap_config.bind_password %}•••••••• (Ya configurada){% else %}Dejar en blanco para no modificar{% endif %}">
                         </div>
                         <div class="mb-3">
                             <label for="search_base" class="form-label">Base de Búsqueda (Search Base)</label>
