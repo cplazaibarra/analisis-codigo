@@ -228,7 +228,7 @@ def update_ldap_config():
     config.bind_dn = request.form.get('bind_dn')
     
     new_bind_password = request.form.get('bind_password')
-    if new_bind_password:
+    if new_bind_password and new_bind_password != '********':
         config.bind_password = new_bind_password
         
     config.search_base = request.form.get('search_base')
