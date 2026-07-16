@@ -92,11 +92,18 @@ def authenticate_ldap(username, password, config):
         
         # Validar pertenencia al grupo requerido si está configurado
         if config.required_group:
-            group_filter = f"(|(cn={config.required_group})(dn={config.required_group}))"
+            group_name = config.required_group
+            if ',' in group_name:
+                for part in group_name.split(','):
+                    if part.lower().startswith('cn='):
+                        group_name = part.split('=')[1]
+                        break
+            
+            group_filter = f"(cn={group_name})"
             conn.search(
                 search_base=config.search_base,
                 search_filter=group_filter,
-                attributes=['member', 'uniqueMember']
+                attributes=['member', 'uniqueMember', 'memberUid']
             )
             is_member = False
             for entry in conn.entries:
@@ -105,19 +112,25 @@ def authenticate_ldap(username, password, config):
                     members.extend([str(m).lower() for m in entry.member])
                 if 'uniqueMember' in entry:
                     members.extend([str(m).lower() for m in entry.uniqueMember])
-                if user_dn.lower() in members:
+                if 'memberUid' in entry:
+                    members.extend([str(m).lower() for m in entry.memberUid])
+                
+                if user_dn.lower() in members or username.lower() in members:
                     is_member = True
                     break
             
             # Segunda comprobación: buscar en memberOf del usuario
             if not is_member:
-                conn.search(search_base=user_dn, search_filter="(objectClass=*)", attributes=['memberOf'])
-                if conn.entries and 'memberOf' in conn.entries[0]:
-                    group_dns = [str(g).lower() for g in conn.entries[0].memberOf]
-                    for g_dn in group_dns:
-                        if config.required_group.lower() in g_dn:
-                            is_member = True
-                            break
+                try:
+                    conn.search(search_base=user_dn, search_filter="(objectClass=*)", attributes=['memberOf'])
+                    if conn.entries and 'memberOf' in conn.entries[0]:
+                        group_dns = [str(g).lower() for g in conn.entries[0].memberOf]
+                        for g_dn in group_dns:
+                            if config.required_group.lower() in g_dn:
+                                is_member = True
+                                break
+                except Exception:
+                    pass
             
             if not is_member:
                 return False, f"El usuario no pertenece al grupo de LDAP requerido: '{config.required_group}'"
