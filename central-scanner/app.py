@@ -81,7 +81,7 @@ def authenticate_ldap(username, password, config):
         conn.search(
             search_base=config.search_base,
             search_filter=search_filter,
-            attributes=['mail', 'cn']
+            attributes=['mail', 'cn', 'gidNumber']
         )
         
         if not conn.entries:
@@ -89,6 +89,7 @@ def authenticate_ldap(username, password, config):
             
         user_dn = conn.entries[0].entry_dn
         email = str(conn.entries[0].mail) if 'mail' in conn.entries[0] else f"{username}@ldap.local"
+        user_gid = str(conn.entries[0].gidNumber) if 'gidNumber' in conn.entries[0] else None
         
         # Validar pertenencia al grupo requerido si está configurado
         if config.required_group:
@@ -103,10 +104,15 @@ def authenticate_ldap(username, password, config):
             conn.search(
                 search_base=config.search_base,
                 search_filter=group_filter,
-                attributes=['member', 'uniqueMember', 'memberUid']
+                attributes=['member', 'uniqueMember', 'memberUid', 'gidNumber']
             )
             is_member = False
             for entry in conn.entries:
+                # Comprobar si es su grupo primario
+                if 'gidNumber' in entry and user_gid and str(entry.gidNumber) == user_gid:
+                    is_member = True
+                    break
+                
                 members = []
                 if 'member' in entry:
                     members.extend([str(m).lower() for m in entry.member])
