@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Escaneo de Seguridad - SCAN-CODE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: #151d30;
+            --card-border: #1e2942;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-crimson: #ef4444;
+            --accent-gold: #f59e0b;
+            --accent-emerald: #10b981;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--card-border);
+            padding: 1rem 2rem;
+        }
+
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.5rem;
+            color: var(--text-primary) !important;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-link {
+            color: var(--text-secondary) !important;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: var(--accent-blue) !important;
+            transform: translateY(-1px);
+        }
+
+        .hero-section {
+            background: linear-gradient(135deg, #16223f 0%, #0d1527 100%);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(56,189,248,0.1) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+
+        .metric-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-blue);
+            box-shadow: 0 10px 20px rgba(56,189,248,0.1);
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-title {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-custom-primary {
+            background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+            color: white;
+            border: none;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 0.5rem 1.25rem;
+            transition: all 0.2s;
+        }
+
+        .btn-custom-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+        }
+
+        .btn-custom-outline {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--card-border);
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 0.5rem 1.25rem;
+            transition: all 0.2s;
+        }
+
+        .btn-custom-outline:hover {
+            background-color: var(--card-border);
+            color: var(--accent-blue);
+        }
+
+        .table-container {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .table {
+            color: var(--text-primary) !important;
+            margin-bottom: 0;
+        }
+
+        .table th {
+            border-bottom: 2px solid var(--card-border);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 1rem;
+        }
+
+        .table td {
+            border-bottom: 1px solid var(--card-border);
+            padding: 1rem;
+            vertical-align: middle;
+        }
+
+        .badge-severity-high {
+            background-color: rgba(239,68,68,0.15);
+            color: var(--accent-crimson);
+            border: 1px solid rgba(239,68,68,0.3);
+        }
+
+        .badge-severity-medium {
+            background-color: rgba(245,158,11,0.15);
+            color: var(--accent-gold);
+            border: 1px solid rgba(245,158,11,0.3);
+        }
+
+        .badge-severity-low {
+            background-color: rgba(16,185,129,0.15);
+            color: var(--accent-emerald);
+            border: 1px solid rgba(16,185,129,0.3);
+        }
+
+        .spinner-border {
+            width: 1.2rem;
+            height: 1.2rem;
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">🛡️ SCAN-CODE</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/settings">Configuración</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-5">
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show bg-dark text-white border-0 shadow mb-4" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <!-- HERO HEADER -->
+        <div class="hero-section">
+            <h1 class="display-6 fw-bold mb-2">Portal Central de Escaneo de Código</h1>
+            <p class="lead text-muted mb-0">Escanea repositorios de múltiples servidores GitLab utilizando Semgrep y Trivy locales instalados directamente en el sistema operativo base.</p>
+        </div>
+
+        <!-- METRICS -->
+        <div class="row g-4 mb-5">
+            <div class="col-md-3">
+                <div class="metric-card">
+                    <div class="metric-value text-white">{{ total_projects }}</div>
+                    <div class="metric-title">Proyectos</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card" style="border-left: 4px solid var(--accent-crimson);">
+                    <div class="metric-value" style="color: var(--accent-crimson);">{{ high_findings }}</div>
+                    <div class="metric-title">Críticos / Altos</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card" style="border-left: 4px solid var(--accent-gold);">
+                    <div class="metric-value" style="color: var(--accent-gold);">{{ medium_findings }}</div>
+                    <div class="metric-title">Medios</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card" style="border-left: 4px solid var(--accent-emerald);">
+                    <div class="metric-value" style="color: var(--accent-emerald);">{{ low_findings }}</div>
+                    <div class="metric-title">Bajos</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PROJECTS TABLE -->
+        <div class="table-container">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3 class="fw-bold mb-0">📦 Proyectos Registrados</h3>
+                <a href="/settings" class="btn btn-custom-primary">+ Añadir o Importar</a>
+            </div>
+
+            {% if not projects %}
+            <div class="text-center py-5 text-muted">
+                <h4>No hay proyectos registrados para escanear.</h4>
+                <p>Ve a Configuración para enlazar un GitLab e importar repositorios.</p>
+            </div>
+            {% else %}
+            <div class="table-responsive">
+                <table class="table table-dark table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Proyecto</th>
+                            <th>Origen GitLab</th>
+                            <th>Último Escaneo</th>
+                            <th>Estado</th>
+                            <th class="text-center">Severidades</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in projects %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold fs-5 text-white">{{ p.obj.name }}</div>
+                                <small class="text-muted d-block">{{ p.obj.description or 'Sin descripción' }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary px-3 py-2">{{ p.obj.integration.name }}</span>
+                            </td>
+                            <td>
+                                <span class="text-muted">{{ p.obj.last_scan.strftime('%d-%m-%Y %H:%M') if p.obj.last_scan else 'Nunca' }}</span>
+                            </td>
+                            <td>
+                                <span class="badge id-status-{{ p.obj.id }} 
+                                    {% if p.obj.status == 'Escaneado' %}bg-success
+                                    {% elif p.obj.status == 'Escaneando' %}bg-warning text-dark
+                                    {% elif p.obj.status == 'Fallido' %}bg-danger
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ p.obj.status }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge badge-severity-high me-1">{{ p.high }}</span>
+                                <span class="badge badge-severity-medium me-1">{{ p.medium }}</span>
+                                <span class="badge badge-severity-low">{{ p.low }}</span>
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-custom-outline me-2 btn-scan" data-id="{{ p.obj.id }}">
+                                    <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+                                    <span>🔄 Escanear</span>
+                                </button>
+                                <a href="/project/{{ p.obj.id }}" class="btn btn-sm btn-custom-primary">🔍 Ver Reporte</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- FINDINGS FILTER SECTION -->
+        <div class="table-container mt-5">
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+                <h3 class="fw-bold mb-0">🔍 Buscador Global de Hallazgos</h3>
+                <div class="d-flex gap-3">
+                    <div>
+                        <label for="filter-project" class="form-label text-muted small fw-bold">Proyecto</label>
+                        <select id="filter-project" class="form-select bg-dark text-white border-secondary">
+                            <option value="all">Todos los proyectos</option>
+                            {% for p in all_projects_list %}
+                            <option value="{{ p.id }}">{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="filter-branch" class="form-label text-muted small fw-bold">Usuario / Rama</label>
+                        <select id="filter-branch" class="form-select bg-dark text-white border-secondary">
+                            <option value="all">Todos los usuarios</option>
+                            {% for b in branches %}
+                            <option value="{{ b }}">{{ b }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="findings-table-container">
+                <div class="text-center py-4 text-muted">
+                    <p>Cargando hallazgos globales...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.querySelectorAll('.btn-scan').forEach(button => {
+            button.addEventListener('click', function() {
+                const projectId = this.getAttribute('data-id');
+                const spinner = this.querySelector('.spinner-border');
+                const label = this.querySelector('span:not(.spinner-border)');
+                const statusBadge = document.querySelector(`.id-status-${projectId}`);
+                
+                // Deshabilitar botón
+                this.disabled = true;
+                spinner.classList.remove('d-none');
+                label.textContent = " Escaneando...";
+                
+                // Actualizar badge de estado
+                statusBadge.className = `badge id-status-${projectId} bg-warning text-dark`;
+                statusBadge.textContent = "Escaneando";
+                
+                // POST Request
+                fetch(`/scan/${projectId}`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    spinner.classList.add('d-none');
+                    this.disabled = false;
+                    label.textContent = " Escanear";
+                    
+                    if (data.success) {
+                        statusBadge.className = `badge id-status-${projectId} bg-success`;
+                        statusBadge.textContent = "Escaneado";
+                        alert(data.message);
+                        window.location.reload(); // Recargar para ver contadores actualizados
+                    } else {
+                        statusBadge.className = `badge id-status-${projectId} bg-danger`;
+                        statusBadge.textContent = "Fallido";
+                        alert("Error: " + data.message);
+                    }
+                })
+                .catch(err => {
+                    spinner.classList.add('d-none');
+                    this.disabled = false;
+                    label.textContent = " Escanear";
+                    statusBadge.className = `badge id-status-${projectId} bg-danger`;
+                    statusBadge.textContent = "Fallido";
+                    alert("Error de comunicación con el portal: " + err);
+                });
+            });
+        });
+
+        // --- FILTRADO DINÁMICO DE HALLAZGOS ---
+        function loadFindings() {
+            const projectId = document.getElementById('filter-project').value;
+            const branch = document.getElementById('filter-branch').value;
+            const container = document.getElementById('findings-table-container');
+            
+            container.innerHTML = `
+                <div class="text-center py-5">
+                    <div class="spinner-border text-info" role="status"></div>
+                    <p class="mt-2 text-muted">Buscando hallazgos...</p>
+                </div>
+            `;
+            
+            fetch(`/api/findings?project_id=${projectId}&branch=${branch}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-5 text-muted">
+                            <h5>🎉 ¡No se encontraron hallazgos para los filtros seleccionados!</h5>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = `
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Proyecto</th>
+                                    <th>Analizador</th>
+                                    <th>Vulnerabilidad</th>
+                                    <th>Severidad</th>
+                                    <th>Ubicación</th>
+                                    <th class="text-end">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                data.forEach(f => {
+                    let badgeClass = "badge-severity-low";
+                    if (f.severity === "HIGH" || f.severity === "CRITICAL" || f.severity === "ERROR") {
+                        badgeClass = "badge-severity-high";
+                    } else if (f.severity === "WARNING" || f.severity === "MEDIUM") {
+                        badgeClass = "badge-severity-medium";
+                    }
+                    
+                    html += `
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-white">${f.project_name}</div>
+                                <span class="badge bg-secondary small">Rama: ${f.branch}</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-info text-dark fw-bold">${f.scanner}</span>
+                            </td>
+                            <td>
+                                <div class="fw-bold text-white">${f.title}</div>
+                            </td>
+                            <td>
+                                <span class="badge ${badgeClass}">${f.severity}</span>
+                            </td>
+                            <td>
+                                <code class="text-info">${f.file_path}</code>
+                                <span class="text-muted d-block small">Línea: ${f.line_number}</span>
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-custom-outline" onclick="toggleDetails(${f.id})">👁️ Ver Código</button>
+                            </td>
+                        </tr>
+                        <tr id="details-${f.id}" class="d-none bg-black">
+                            <td colspan="6" class="p-3" style="background-color: #0e1422; border-bottom: 1px solid #1e2942;">
+                                <div class="text-secondary mb-2"><strong>Descripción:</strong> ${f.description}</div>
+                                ${f.code_snippet ? `
+                                    <div class="text-muted small mb-1">Evidencia:</div>
+                                    <div class="code-container" style="background-color: #05070d; border: 1px solid #1e2942; border-radius: 8px; padding: 1rem; overflow-x: auto;">
+                                        <pre class="code-block" style="font-family: monospace; color: #cbd5e1; margin-bottom:0; white-space: pre;"><code>${f.code_snippet}</code></pre>
+                                    </div>
+                                ` : '<div class="text-muted small">Sin evidencia de código.</div>'}
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                container.innerHTML = html;
+            })
+            .catch(err => {
+                container.innerHTML = `
+                    <div class="text-center py-5 text-danger">
+                        <h5>❌ Error al cargar los hallazgos: ${err}</h5>
+                    </div>
+                `;
+            });
+        }
+        
+        function toggleDetails(id) {
+            const row = document.getElementById(`details-${id}`);
+            if (row.classList.contains('d-none')) {
+                row.classList.remove('d-none');
+            } else {
+                row.classList.add('d-none');
+            }
+        }
+        
+        // Registrar listeners para cargar hallazgos automáticamente al cambiar filtros
+        document.getElementById('filter-project').addEventListener('change', loadFindings);
+        document.getElementById('filter-branch').addEventListener('change', loadFindings);
+        
+        // Cargar inicialmente al estar listo el DOM
+        document.addEventListener('DOMContentLoaded', loadFindings);
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración - SCAN-CODE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: #151d30;
+            --card-border: #1e2942;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-crimson: #ef4444;
+            --accent-gold: #f59e0b;
+            --accent-emerald: #10b981;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--card-border);
+            padding: 1rem 2rem;
+        }
+
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.5rem;
+            color: var(--text-primary) !important;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-link {
+            color: var(--text-secondary) !important;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: var(--accent-blue) !important;
+        }
+
+        .settings-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .form-control {
+            background-color: #0b0f19 !important;
+            border: 1px solid var(--card-border) !important;
+            color: var(--text-primary) !important;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+        }
+
+        .form-control:focus {
+            border-color: var(--accent-blue) !important;
+            box-shadow: 0 0 0 0.25rem rgba(56,189,248,0.15) !important;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .btn-custom-primary {
+            background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+            color: white;
+            border: none;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            transition: all 0.2s;
+        }
+
+        .btn-custom-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-custom-outline {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--card-border);
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 0.5rem 1.25rem;
+            transition: all 0.2s;
+        }
+
+        .btn-custom-outline:hover {
+            background-color: var(--card-border);
+            color: var(--accent-blue);
+        }
+
+        .btn-danger-custom {
+            background-color: rgba(239,68,68,0.1);
+            color: var(--accent-crimson);
+            border: 1px solid rgba(239,68,68,0.2);
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 0.5rem 1.25rem;
+            transition: all 0.2s;
+        }
+
+        .btn-danger-custom:hover {
+            background-color: var(--accent-crimson);
+            color: white;
+        }
+
+        .integration-item {
+            border-bottom: 1px solid var(--card-border);
+            padding: 1.5rem 0;
+        }
+
+        .integration-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .integration-item:first-child {
+            padding-top: 0;
+        }
+
+        .status-badge {
+            font-size: 0.85rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 50px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">🛡️ SCAN-CODE</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/settings">Configuración</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-5">
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show bg-dark text-white border-0 shadow mb-4" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <div class="row">
+            <!-- PANEL: AGREGAR INTEGRACIÓN -->
+            <div class="col-lg-5">
+                <div class="settings-card">
+                    <h3 class="fw-bold mb-4">🔗 Enlazar GitLab</h3>
+                    <form action="/settings/integration/add" methods="POST" method="POST">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Nombre de la Instancia</label>
+                            <input type="text" class="form-control" id="name" name="name" placeholder="Ej: GitLab Servidor Local HP" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="url" class="form-label">Dirección IP / URL</label>
+                            <input type="url" class="form-control" id="url" name="url" placeholder="http://172.27.103.42:8090" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="token" class="form-label">Personal Access Token (PAT)</label>
+                            <input type="password" class="form-control" id="token" name="token" placeholder="glpat-..." required>
+                        </div>
+                        <button type="submit" class="btn btn-custom-primary w-100">🔌 Conectar Servidor</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- PANEL: LISTA DE INTEGRACIONES -->
+            <div class="col-lg-7">
+                <div class="settings-card">
+                    <h3 class="fw-bold mb-4">🖥️ Servidores Enlazados</h3>
+                    
+                    {% if not integrations %}
+                    <div class="text-center py-5 text-muted">
+                        <p class="mb-0">No se ha enlazado ningún servidor GitLab.</p>
+                    </div>
+                    {% else %}
+                        {% for integration in integrations %}
+                        <div class="integration-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="fw-bold text-white mb-1">{{ integration.name }}</h5>
+                                <p class="text-muted small mb-2">{{ integration.url }}</p>
+                                
+                                {% if "Conectado" in integration.status %}
+                                    <span class="badge status-badge bg-success-subtle text-success border border-success-subtle">
+                                        🟢 {{ integration.status }}
+                                    </span>
+                                {% else %}
+                                    <span class="badge status-badge bg-danger-subtle text-danger border border-danger-subtle">
+                                        🔴 {{ integration.status }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                            <div class="d-flex">
+                                <form action="/settings/integration/test/{{ integration.id }}" method="POST" class="me-2">
+                                    <button type="submit" class="btn btn-sm btn-custom-outline">🔄 Test</button>
+                                </form>
+                                <button type="button" class="btn btn-sm btn-custom-outline me-2" onclick="openEditModal({{ integration.id }}, '{{ integration.name }}', '{{ integration.url }}')">✏️ Editar</button>
+                                <a href="/settings/integration/import/{{ integration.id }}" class="btn btn-sm btn-custom-primary me-2">📦 Importar Proyectos</a>
+                                <form action="/settings/integration/delete/{{ integration.id }}" method="POST" onsubmit="return confirm('¿Seguro que deseas eliminar este servidor? Se borrarán todos sus proyectos asociados.');">
+                                    <button type="submit" class="btn btn-sm btn-danger-custom">🗑️ Eliminar</button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE EDICIÓN -->
+    <div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content text-white" style="background-color: var(--card-bg); border: 1px solid var(--card-border);">
+                <div class="modal-header border-bottom border-secondary">
+                    <h5 class="modal-title fw-bold">✏️ Editar Integración GitLab</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="edit-form" method="POST">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="edit-name" class="form-label">Nombre de la Instancia</label>
+                            <input type="text" class="form-control" id="edit-name" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit-url" class="form-label">Dirección IP / URL</label>
+                            <input type="url" class="form-control" id="edit-url" name="url" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit-token" class="form-label">Personal Access Token (PAT) <small class="text-muted">(dejar en blanco para no modificar)</small></label>
+                            <input type="password" class="form-control" id="edit-token" name="token" placeholder="glpat-...">
+                        </div>
+                    </div>
+                    <div class="modal-footer border-top border-secondary">
+                        <button type="button" class="btn btn-sm btn-custom-outline" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-sm btn-custom-primary">Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function openEditModal(id, name, url) {
+            document.getElementById('edit-form').action = `/settings/integration/edit/${id}`;
+            document.getElementById('edit-name').value = name;
+            document.getElementById('edit-url').value = url;
+            document.getElementById('edit-token').value = '';
+            
+            const editModal = new bootstrap.Modal(document.getElementById('editModal'));
+            editModal.show();
+        }
+    </script>
+</body>
+</html>

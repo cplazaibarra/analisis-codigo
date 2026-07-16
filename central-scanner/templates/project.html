@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte: {{ project.name }} - SCAN-CODE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: #151d30;
+            --card-border: #1e2942;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-crimson: #ef4444;
+            --accent-gold: #f59e0b;
+            --accent-emerald: #10b981;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--card-border);
+            padding: 1rem 2rem;
+        }
+
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.5rem;
+            color: var(--text-primary) !important;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-link {
+            color: var(--text-secondary) !important;
+            font-weight: 600;
+        }
+
+        .report-header {
+            background: linear-gradient(135deg, #16223f 0%, #0d1527 100%);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .nav-tabs {
+            border-bottom: 2px solid var(--card-border);
+            margin-bottom: 2rem;
+        }
+
+        .nav-tabs .nav-link {
+            background-color: transparent;
+            color: var(--text-secondary);
+            border: none;
+            font-weight: 600;
+            padding: 1rem 1.5rem;
+            font-size: 1.1rem;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .nav-tabs .nav-link:hover {
+            color: var(--text-primary);
+            border-bottom-color: var(--card-border);
+        }
+
+        .nav-tabs .nav-link.active {
+            background-color: transparent;
+            color: var(--accent-blue);
+            border-bottom: 3px solid var(--accent-blue);
+        }
+
+        .finding-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .badge-severity-critical {
+            background-color: rgba(239,68,68,0.2);
+            color: #f87171;
+            border: 1px solid rgba(239,68,68,0.4);
+            font-weight: 600;
+        }
+
+        .badge-severity-high {
+            background-color: rgba(239,68,68,0.15);
+            color: var(--accent-crimson);
+            border: 1px solid rgba(239,68,68,0.3);
+            font-weight: 600;
+        }
+
+        .badge-severity-medium {
+            background-color: rgba(245,158,11,0.15);
+            color: var(--accent-gold);
+            border: 1px solid rgba(245,158,11,0.3);
+            font-weight: 600;
+        }
+
+        .badge-severity-low {
+            background-color: rgba(16,185,129,0.15);
+            color: var(--accent-emerald);
+            border: 1px solid rgba(16,185,129,0.3);
+            font-weight: 600;
+        }
+
+        .code-container {
+            background-color: #070a13;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            overflow-x: auto;
+        }
+
+        .code-block {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            color: #cbd5e1;
+            margin-bottom: 0;
+            white-space: pre;
+        }
+
+        .code-block .highlight {
+            background-color: rgba(239,68,68,0.15);
+            display: inline-block;
+            width: 100%;
+        }
+
+        .btn-toggle-code {
+            background-color: transparent;
+            color: var(--accent-blue);
+            border: 1px solid var(--accent-blue);
+            border-radius: 6px;
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .btn-toggle-code:hover {
+            background-color: var(--accent-blue);
+            color: var(--bg-color);
+        }
+
+        .btn-filter-severity.active[data-severity="all"] { background-color: var(--text-secondary); color: var(--bg-color); }
+        .btn-filter-severity.active[data-severity="high"] { background-color: var(--accent-crimson); color: white; }
+        .btn-filter-severity.active[data-severity="medium"] { background-color: var(--accent-gold); color: var(--bg-color); }
+        .btn-filter-severity.active[data-severity="low"] { background-color: var(--accent-emerald); color: white; }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">🛡️ SCAN-CODE</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/settings">Configuración</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-5">
+        
+        <!-- HEADER -->
+        <div class="report-header d-flex justify-content-between align-items-center">
+            <div>
+                <span class="badge bg-secondary mb-2">{{ project.integration.name }}</span>
+                <h1 class="fw-bold mb-2 text-white">{{ project.name }}</h1>
+                <p class="text-muted mb-0">Último escaneo: <strong>{{ project.last_scan.strftime('%d-%m-%Y %H:%M') if project.last_scan else 'Nunca' }}</strong></p>
+            </div>
+            <div>
+                <a href="/" class="btn btn-outline-light me-2">Volver</a>
+                <button class="btn btn-primary" onclick="triggerScan({{ project.id }})">Re-Escanear</button>
+            </div>
+        </div>
+
+        <!-- TABS -->
+        <ul class="nav nav-tabs" id="scannerTabs" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link active" id="semgrep-tab" data-bs-toggle="tab" data-bs-target="#semgrep-pane" type="button" role="tab">
+                    🔍 Semgrep SAST ({{ semgrep|length }})
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" id="trivy-tab" data-bs-toggle="tab" data-bs-target="#trivy-pane" type="button" role="tab">
+                    📦 Trivy SCA ({{ trivy|length }})
+                </button>
+            </li>
+        </ul>
+
+        <!-- SEVERITY FILTER -->
+        <div class="d-flex gap-2 mb-4 justify-content-end align-items-center flex-wrap">
+            <span class="text-secondary small fw-bold me-2">Filtrar por Severidad:</span>
+            <button class="btn btn-sm btn-outline-secondary btn-filter-severity active" data-severity="all">Todos</button>
+            <button class="btn btn-sm btn-outline-danger btn-filter-severity" data-severity="high">🔴 Críticos / Altos</button>
+            <button class="btn btn-sm btn-outline-warning btn-filter-severity" data-severity="medium">🟡 Medios</button>
+            <button class="btn btn-sm btn-outline-success btn-filter-severity" data-severity="low">🟢 Bajos</button>
+        </div>
+
+        <!-- PANES -->
+        <div class="tab-content" id="scannerTabsContent">
+            
+            <!-- SEMGREP PANE -->
+            <div class="tab-pane fade show active" id="semgrep-pane" role="tabpanel">
+                {% if not semgrep %}
+                <div class="text-center py-5 text-muted">
+                    <h3>🎉 ¡No se encontraron vulnerabilidades SAST!</h3>
+                    <p>Semgrep no detectó ningún problema de seguridad en el código analizado.</p>
+                </div>
+                {% else %}
+                    {% for f in semgrep %}
+                    <div class="finding-card" data-severity="{% if f.severity in ['ERROR', 'CRITICAL', 'HIGH'] %}high{% elif f.severity in ['WARNING', 'MEDIUM'] %}medium{% else %}low{% endif %}">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <span class="badge 
+                                    {% if f.severity in ['ERROR', 'CRITICAL'] %}badge-severity-critical
+                                    {% elif f.severity == 'WARNING' or f.severity == 'HIGH' %}badge-severity-high
+                                    {% elif f.severity == 'MEDIUM' %}badge-severity-medium
+                                    {% else %}badge-severity-low{% endif %} mb-2">
+                                    {{ f.severity }}
+                                </span>
+                                <h4 class="fw-bold text-white mb-1">{{ f.title }}</h4>
+                                <p class="text-info small mb-0">📍 Archivo: <code>{{ f.file_path }}</code> (Línea: {{ f.line_number }})</p>
+                            </div>
+                            <span class="text-muted small">{{ f.rule_id }}</span>
+                        </div>
+                        <p class="text-secondary">{{ f.description }}</p>
+                        
+                        {% if f.code_snippet %}
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <span class="text-muted small">Evidencia de código</span>
+                            <button class="btn btn-toggle-code" type="button" data-bs-toggle="collapse" data-bs-target="#codeSemgrep{{ f.id }}">
+                                Mostrar/Ocultar Código
+                            </button>
+                        </div>
+                        <div class="collapse mt-2" id="codeSemgrep{{ f.id }}">
+                            <div class="code-container">
+                                <pre class="code-block"><code>{{ f.code_snippet }}</code></pre>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            <!-- TRIVY PANE -->
+            <div class="tab-pane fade" id="trivy-pane" role="tabpanel">
+                {% if not trivy %}
+                <div class="text-center py-5 text-muted">
+                    <h3>🎉 ¡No se encontraron vulnerabilidades en dependencias!</h3>
+                    <p>Trivy no detectó librerías obsoletas ni vulnerabilidades conocidas en los paquetes del proyecto.</p>
+                </div>
+                {% else %}
+                    {% for f in trivy %}
+                    <div class="finding-card" data-severity="{% if f.severity in ['CRITICAL', 'HIGH'] %}high{% elif f.severity == 'MEDIUM' %}medium{% else %}low{% endif %}">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <span class="badge 
+                                    {% if f.severity in ['CRITICAL', 'HIGH'] %}badge-severity-high
+                                    {% elif f.severity == 'MEDIUM' %}badge-severity-medium
+                                    {% else %}badge-severity-low{% endif %} mb-2">
+                                    {{ f.severity }}
+                                </span>
+                                <h4 class="fw-bold text-white mb-1">{{ f.title }}</h4>
+                                <p class="text-info small mb-0">📍 Archivo: <code>{{ f.file_path }}</code></p>
+                            </div>
+                            <span class="text-muted small">{{ f.rule_id }}</span>
+                        </div>
+                        <p class="text-secondary">{{ f.description }}</p>
+                        
+                        {% if f.code_snippet %}
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <span class="text-muted small">Evidencia de Dependencia</span>
+                            <button class="btn btn-toggle-code" type="button" data-bs-toggle="collapse" data-bs-target="#codeTrivy{{ f.id }}">
+                                Mostrar/Ocultar Código
+                            </button>
+                        </div>
+                        <div class="collapse mt-2" id="codeTrivy{{ f.id }}">
+                            <div class="code-container">
+                                <pre class="code-block"><code>{{ f.code_snippet }}</code></pre>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function triggerScan(projectId) {
+            if (confirm("¿Deseas iniciar un nuevo escaneo ahora mismo?")) {
+                fetch(`/scan/${projectId}`, { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    alert(data.message);
+                    window.location.reload();
+                })
+                .catch(err => alert("Error: " + err));
+            }
+        }
+
+        // --- FILTRADO DE SEVERIDADES EN REPORTES ---
+        document.querySelectorAll('.btn-filter-severity').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.btn-filter-severity').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                const selectedSeverity = this.getAttribute('data-severity');
+                
+                document.querySelectorAll('.finding-card').forEach(card => {
+                    const cardSeverity = card.getAttribute('data-severity');
+                    if (selectedSeverity === 'all' || cardSeverity === selectedSeverity) {
+                        card.classList.remove('d-none');
+                    } else {
+                        card.classList.add('d-none');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

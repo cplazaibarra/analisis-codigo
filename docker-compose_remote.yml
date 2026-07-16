@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:18.8.4-ce.0
+    container_name: gitlab-server
+    restart: unless-stopped
+    hostname: '172.27.103.42'
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://172.27.103.42:8090'
+        
+        # Deshabilitar el monitoreo central para ahorrar RAM (apaga automáticamente Prometheus, Grafana, Alertmanager y exporters)
+        prometheus_monitoring['enable'] = false
+        
+        # Reducir procesos de Puma (servidor web) a modo hilo único
+        puma['worker_processes'] = 0
+        puma['min_threads'] = 1
+        puma['max_threads'] = 2
+        
+        # Reducir hilos de Sidekiq
+        sidekiq['max_concurrency'] = 2
+        
+        # Optimizar base de datos PostgreSQL
+        postgresql['shared_buffers'] = '128MB'
+        postgresql['max_connections'] = 80
+        postgresql['max_locks_per_transaction'] = 512
+        
+        # Deshabilitar servicios no requeridos
+        registry['enable'] = false
+        mattermost['enable'] = false
+    ports:
+      - "8090:8090"
+      - "2224:22"
+    volumes:
+      - ./gitlab/config:/etc/gitlab
+      - ./gitlab/logs:/var/log/gitlab
+      - ./gitlab/data:/var/opt/gitlab
+    networks:
+      - gitlab-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: security-reports-web
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    volumes:
+      - ./html:/usr/share/nginx/html:ro
+    networks:
+      - gitlab-net
+
+  gitlab-runner:
+    image: gitlab/gitlab-runner:latest
+    container_name: gitlab-runner
+    restart: unless-stopped
+    volumes:
+      - ./gitlab-runner/config:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - gitlab-net
+    depends_on:
+      - gitlab
+
+networks:
+  gitlab-net:
+    driver: bridge

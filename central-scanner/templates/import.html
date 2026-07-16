@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Importar Proyectos - SCAN-CODE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: #151d30;
+            --card-border: #1e2942;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-crimson: #ef4444;
+            --accent-gold: #f59e0b;
+            --accent-emerald: #10b981;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--card-border);
+            padding: 1rem 2rem;
+        }
+
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.5rem;
+            color: var(--text-primary) !important;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-link {
+            color: var(--text-secondary) !important;
+            font-weight: 600;
+        }
+
+        .import-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .form-control {
+            background-color: #0b0f19 !important;
+            border: 1px solid var(--card-border) !important;
+            color: var(--text-primary) !important;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+        }
+
+        .form-control:focus {
+            border-color: var(--accent-blue) !important;
+            box-shadow: 0 0 0 0.25rem rgba(56,189,248,0.15) !important;
+        }
+
+        .btn-custom-primary {
+            background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+            color: white;
+            border: none;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            transition: all 0.2s;
+        }
+
+        .btn-custom-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .table-container {
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 1.5rem;
+        }
+
+        .table {
+            color: var(--text-primary) !important;
+            margin-bottom: 0;
+        }
+
+        .table th, .table td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--card-border);
+            vertical-align: middle;
+        }
+
+        .table th {
+            background-color: rgba(30,41,66,0.3);
+            font-weight: 600;
+        }
+
+        .form-check-input {
+            background-color: #0b0f19;
+            border-color: var(--card-border);
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+
+        .form-check-input:checked {
+            background-color: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">🛡️ SCAN-CODE</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/settings">Configuración</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-5">
+        <div class="import-card">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="fw-bold mb-1">📦 Importar Proyectos</h2>
+                    <p class="text-muted mb-0">Selecciona los repositorios de <strong>{{ integration.name }}</strong> que deseas añadir al portal de escaneo.</p>
+                </div>
+                <a href="/settings" class="btn btn-sm btn-outline-light">Atrás</a>
+            </div>
+
+            <!-- SEARCH FILTER -->
+            <div class="mb-4">
+                <input type="text" id="projectSearch" class="form-control" placeholder="🔍 Buscar proyecto por nombre...">
+            </div>
+
+            <form action="/settings/integration/import/{{ integration.id }}/save" method="POST">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="selectAll">
+                        <label class="form-check-label text-muted fw-semibold" for="selectAll">Seleccionar Todos</label>
+                    </div>
+                    <button type="submit" class="btn btn-custom-primary">📥 Importar Proyectos Seleccionados</button>
+                </div>
+
+                <div class="table-container">
+                    <table class="table table-dark table-hover">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;"></th>
+                                <th>Nombre del Proyecto</th>
+                                <th>URL</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="projectTableBody">
+                            {% for gp in projects %}
+                            <tr class="project-row">
+                                <td>
+                                    {% if not gp.imported %}
+                                    <input class="form-check-input project-checkbox" type="checkbox" name="selected_projects" value="{{ gp.id }}">
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="fw-bold text-white project-name">{{ gp.name }}</div>
+                                    {% if gp.description %}
+                                    <small class="text-muted d-block">{{ gp.description }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ gp.web_url }}" target="_blank" class="text-info small text-decoration-none">{{ gp.web_url }}</a>
+                                </td>
+                                <td>
+                                    {% if gp.imported %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle">Importado</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Disponible</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Select All / Deselect All
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const projectCheckboxes = document.querySelectorAll('.project-checkbox');
+
+        selectAllCheckbox.addEventListener('change', function() {
+            projectCheckboxes.forEach(cb => {
+                // Solo marcar los que se muestran en el filtro
+                const row = cb.closest('tr');
+                if (row.style.display !== 'none') {
+                    cb.checked = this.checked;
+                }
+            });
+        });
+
+        // Search Filter
+        const searchInput = document.getElementById('projectSearch');
+        searchInput.addEventListener('input', function() {
+            const query = this.value.toLowerCase();
+            const rows = document.querySelectorAll('.project-row');
+            
+            rows.forEach(row => {
+                const name = row.querySelector('.project-name').textContent.toLowerCase();
+                if (name.includes(query)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                    // Desmarcar si se oculta
+                    const cb = row.querySelector('.project-checkbox');
+                    if (cb) cb.checked = false;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
