@@ -98,10 +98,10 @@ def scan_project_repository(repo_url, token):
                 print(f"Fallo al cambiar a la rama {branch}: {checkout_res.stderr}")
                 continue
                 
-            # 2. Ejecutar Semgrep en esta rama
-            print(f"Ejecutando Semgrep en rama {branch}...")
+            home_dir = os.path.expanduser("~")
+            rules_path = os.path.join(home_dir, "semgrep-rules", "python")
             semgrep_res = subprocess.run(
-                ["semgrep", "scan", "--config", "/home/mquser/semgrep-rules/python", "--json", "--metrics=off"],
+                ["semgrep", "scan", "--config", rules_path, "--json", "--metrics=off"],
                 cwd=temp_dir,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
