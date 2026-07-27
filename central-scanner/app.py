@@ -406,10 +406,16 @@ def test_integration(id):
         flash(f"Error al conectar con GitLab: {status}", "danger")
     return redirect(url_for('settings'))
 
+def make_gitlab_headers(token):
+    """Auto-detect token type: OAuth (64-char hex) uses Bearer, PAT uses PRIVATE-TOKEN."""
+    if token and len(token) == 64 and all(c in '0123456789abcdef' for c in token.lower()):
+        return {"Authorization": f"Bearer {token}"}
+    return {"PRIVATE-TOKEN": token}
+
 def test_integration_conn(integration_id):
     integration = GitLabIntegration.query.get(integration_id)
     try:
-        headers = {"PRIVATE-TOKEN": integration.token}
+        headers = make_gitlab_headers(integration.token)
         response = requests.get(f"{integration.url}/api/v4/user", headers=headers, timeout=5)
         if response.status_code == 200:
             integration.status = "Conectado"
@@ -427,7 +433,7 @@ def test_integration_conn(integration_id):
 @app.route('/settings/integration/import/<int:id>')
 def import_projects_list(id):
     integration = GitLabIntegration.query.get_or_404(id)
-    headers = {"PRIVATE-TOKEN": integration.token}
+    headers = make_gitlab_headers(integration.token)
     try:
         # Consultar proyectos del servidor GitLab
         response = requests.get(f"{integration.url}/api/v4/projects?membership=true&per_page=100", headers=headers, timeout=5)
@@ -465,7 +471,7 @@ def save_imported_projects(id):
         flash("No seleccionaste ningún proyecto para importar", "warning")
         return redirect(url_for('import_projects_list', id=id))
         
-    headers = {"PRIVATE-TOKEN": integration.token}
+    headers = make_gitlab_headers(integration.token)
     imported_count = 0
     
     for pid in selected_project_ids:
