@@ -586,32 +586,37 @@ def save_imported_projects(id):
 def project_detail(id):
     project = Project.query.get_or_404(id)
     severity_filter = request.args.get('severity')
+    scanner_filter = request.args.get('scanner')
 
-    semgrep_query = Finding.query.filter_by(project_id=id, scanner='semgrep')
-    trivy_query = Finding.query.filter_by(project_id=id, scanner='trivy')
+    semgrep_count = Finding.query.filter_by(project_id=id, scanner='semgrep').count()
+    trivy_count = Finding.query.filter_by(project_id=id, scanner='trivy').count()
+    total_count = semgrep_count + trivy_count
+
+    query = Finding.query.filter_by(project_id=id)
+
+    if scanner_filter:
+        query = query.filter_by(scanner=scanner_filter)
 
     if severity_filter:
         if severity_filter == 'HIGH':
-            semgrep_query = semgrep_query.filter(Finding.severity.in_(['HIGH', 'CRITICAL', 'ERROR']))
-            trivy_query = trivy_query.filter(Finding.severity.in_(['HIGH', 'CRITICAL', 'ERROR']))
+            query = query.filter(Finding.severity.in_(['HIGH', 'CRITICAL', 'ERROR']))
         elif severity_filter == 'MEDIUM':
-            semgrep_query = semgrep_query.filter(Finding.severity.in_(['MEDIUM', 'WARNING']))
-            trivy_query = trivy_query.filter(Finding.severity.in_(['MEDIUM', 'WARNING']))
+            query = query.filter(Finding.severity.in_(['MEDIUM', 'WARNING']))
         elif severity_filter == 'LOW':
-            semgrep_query = semgrep_query.filter(Finding.severity.in_(['LOW', 'INFO', 'NOTE']))
-            trivy_query = trivy_query.filter(Finding.severity.in_(['LOW', 'INFO', 'NOTE']))
+            query = query.filter(Finding.severity.in_(['LOW', 'INFO', 'NOTE']))
         else:
-            semgrep_query = semgrep_query.filter_by(severity=severity_filter)
-            trivy_query = trivy_query.filter_by(severity=severity_filter)
+            query = query.filter_by(severity=severity_filter)
 
-    semgrep_findings = semgrep_query.all()
-    trivy_findings = trivy_query.all()
+    findings = query.order_by(Finding.id.desc()).all()
 
     return render_template('project.html',
                            project=project,
-                           semgrep_findings=semgrep_findings,
-                           trivy_findings=trivy_findings,
-                           selected_severity=severity_filter)
+                           findings=findings,
+                           semgrep_count=semgrep_count,
+                           trivy_count=trivy_count,
+                           total_count=total_count,
+                           selected_severity=severity_filter,
+                           selected_scanner=scanner_filter)
 
 @app.route('/scan/<int:id>', methods=['POST'])
 def run_scan(id):

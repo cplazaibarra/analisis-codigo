@@ -30,7 +30,7 @@
             min-height: 100vh; padding: 1.5rem 1rem; position: fixed; top: 0; bottom: 0; left: 0; z-index: 1000;
         }
 
-        .brand-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; margin-bottom: 2rem; }
+        .brand-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; margin-bottom: 1.5rem; }
         .brand-icon {
             width: 38px; height: 38px; background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px;
@@ -39,9 +39,9 @@
         .brand-title { font-weight: 700; font-size: 1.05rem; color: #ffffff; line-height: 1.2; }
         .brand-subtitle { font-size: 0.75rem; color: #38bdf8; font-weight: 500; }
 
-        .sidebar-nav { display: flex; flex-direction: column; gap: 0.4rem; }
+        .sidebar-nav { display: flex; flex-direction: column; gap: 0.35rem; }
         .sidebar-link {
-            display: flex; align-items: center; gap: 0.85rem; padding: 0.75rem 1rem;
+            display: flex; align-items: center; gap: 0.85rem; padding: 0.7rem 1rem;
             color: #94a3b8; text-decoration: none; font-weight: 600; font-size: 0.95rem; border-radius: 10px; transition: all 0.2s ease;
         }
         .sidebar-link:hover { color: #ffffff; background-color: rgba(255, 255, 255, 0.05); }
@@ -50,6 +50,15 @@
             border-left: 3px solid #38bdf8; border-top-left-radius: 2px; border-bottom-left-radius: 2px;
         }
         .sidebar-link.active i { color: #38bdf8; }
+
+        .sidebar-sublink {
+            display: flex; align-items: center; gap: 0.75rem; padding: 0.55rem 1rem 0.55rem 1.25rem;
+            color: #94a3b8; text-decoration: none; font-weight: 500; font-size: 0.9rem; border-radius: 8px; transition: all 0.2s ease;
+        }
+        .sidebar-sublink:hover { color: #ffffff; background-color: rgba(255, 255, 255, 0.05); }
+        .sidebar-sublink.active { color: #ffffff; font-weight: 600; }
+        .sidebar-sublink i { font-size: 0.5rem; color: #64748b; }
+        .sidebar-sublink.active i { color: #38bdf8; }
 
         .sidebar-footer-card {
             background-color: rgba(255, 255, 255, 0.02); border: 1px solid var(--sidebar-border);
@@ -71,28 +80,30 @@
 
         .content-card { background-color: #ffffff; border: 1px solid var(--card-border); border-radius: 16px; padding: 1.75rem; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 
-        .table-custom { margin-bottom: 0; color: var(--text-primary); }
-        .table-custom th { background-color: transparent; color: var(--text-muted); font-size: 0.75rem; border-bottom: 1px solid var(--card-border); padding: 0.75rem 1rem; }
-        .table-custom td { background-color: transparent; border-bottom: 1px solid #f1f5f9; padding: 0.85rem 1rem; vertical-align: middle; }
+        .form-control, .form-select {
+            background-color: #ffffff !important; border: 1px solid #cbd5e1 !important;
+            color: var(--text-primary) !important; border-radius: 8px; padding: 0.6rem 0.85rem;
+        }
+
+        .table-custom { margin-bottom: 0; color: var(--text-primary); table-layout: fixed; width: 100%; }
+        .table-custom th { background-color: transparent; color: var(--text-muted); font-size: 0.75rem; border-bottom: 1px solid var(--card-border); padding: 0.75rem 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .table-custom td { background-color: transparent; border-bottom: 1px solid #f1f5f9; padding: 0.85rem 0.75rem; vertical-align: middle; }
+
+        .nav-pills-custom .nav-link {
+            color: var(--text-secondary); font-weight: 600; border-radius: 10px; padding: 0.5rem 1rem;
+            border: 1px solid #e2e8f0; background: #ffffff; transition: all 0.2s ease;
+        }
+        .nav-pills-custom .nav-link:hover { background: #f1f5f9; color: #0f172a; }
+        .nav-pills-custom .nav-link.active {
+            background: #2563eb; color: #ffffff; border-color: #2563eb;
+        }
+        .nav-pills-custom .nav-link .badge { font-weight: 700; font-size: 0.8rem; }
 
         .code-snippet-box {
             background-color: #0f172a; color: #38bdf8; padding: 1rem; border-radius: 10px;
             font-family: monospace; font-size: 0.875rem; white-space: pre-wrap; overflow-x: auto;
         }
-    
-        .sidebar-section-header {
-            font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase;
-            letter-spacing: 0.8px; padding: 1.2rem 1rem 0.4rem; margin-top: 0.5rem; border-top: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        .sidebar-sublink {
-            display: flex; align-items: center; gap: 0.75rem; padding: 0.55rem 1rem 0.55rem 1.25rem;
-            color: #94a3b8; text-decoration: none; font-weight: 500; font-size: 0.9rem; border-radius: 8px; transition: all 0.2s ease;
-        }
-        .sidebar-sublink:hover { color: #ffffff; background-color: rgba(255, 255, 255, 0.05); }
-        .sidebar-sublink.active { color: #ffffff; font-weight: 600; }
-        .sidebar-sublink i { font-size: 0.5rem; color: #64748b; }
-        .sidebar-sublink.active i { color: #38bdf8; }
-</style>
+    </style>
 </head>
 <body>
     <aside class="sidebar">
@@ -104,35 +115,34 @@
                     <div class="brand-subtitle">Código Seguro</div>
                 </div>
             </div>
-                                    <nav class="sidebar-nav">
-                <a href="/" class="sidebar-link ">
+            <nav class="sidebar-nav">
+                <a href="/" class="sidebar-link">
                     <i class="bi bi-house-door"></i><span>Resumen</span>
                 </a>
-                <a href="/import" class="sidebar-link ">
+                <a href="/import" class="sidebar-link">
                     <i class="bi bi-download"></i><span>Importar</span>
                 </a>
-                <a href="/findings" class="sidebar-link ">
+                <a href="/findings" class="sidebar-link">
                     <i class="bi bi-file-earmark-text"></i><span>Reportes</span>
                 </a>
-                <a href="/users" class="sidebar-link ">
+                <a href="/users" class="sidebar-link">
                     <i class="bi bi-people"></i><span>Usuarios</span>
                 </a>
 
-                
                 <div class="sidebar-dropdown">
-                    <a class="sidebar-link  d-flex align-items-center justify-content-between" data-bs-toggle="collapse" href="#configSubmenu" role="button" aria-expanded="false" aria-controls="configSubmenu">
+                    <a class="sidebar-link d-flex align-items-center justify-content-between" data-bs-toggle="collapse" href="#configSubmenu" role="button" aria-expanded="false" aria-controls="configSubmenu">
                         <div class="d-flex align-items-center gap-3">
                             <i class="bi bi-gear"></i>
                             <span>Configuración</span>
                         </div>
                         <i class="bi bi-chevron-down small"></i>
                     </a>
-                    <div class="collapse  ps-2 mt-1" id="configSubmenu">
-                        <a href="/settings" class="sidebar-sublink ">
+                    <div class="collapse ps-2 mt-1" id="configSubmenu">
+                        <a href="/settings" class="sidebar-sublink">
                             <i class="bi bi-circle-fill"></i>
                             <span>Integraciones GitLab</span>
                         </a>
-                        <a href="/settings/schedule" class="sidebar-sublink ">
+                        <a href="/settings/schedule" class="sidebar-sublink">
                             <i class="bi bi-circle-fill"></i>
                             <span>Programación Escaneo</span>
                         </a>
@@ -162,119 +172,113 @@
             </div>
         </div>
 
-        <!-- BARRA DE FILTRO DE SEVERIDAD -->
-        <div class="content-card mb-4 py-3">
-            <form method="GET" action="/project/{{ project.id }}" class="d-flex align-items-center gap-3 flex-wrap mb-0">
-                <label class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
-                    <i class="bi bi-funnel-fill text-primary"></i> Filtrar por Severidad:
-                </label>
-                <select class="form-select form-select-sm" name="severity" onchange="this.form.submit()" style="max-width: 250px;">
-                    <option value="">-- Todas las Severidades --</option>
-                    <option value="HIGH" {% if selected_severity == 'HIGH' %}selected{% endif %}>🔴 Críticos / Altos</option>
-                    <option value="MEDIUM" {% if selected_severity == 'MEDIUM' %}selected{% endif %}>🟡 Medios</option>
-                    <option value="LOW" {% if selected_severity == 'LOW' %}selected{% endif %}>🟢 Bajos</option>
-                </select>
-                {% if selected_severity %}
-                <a href="/project/{{ project.id }}" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-x-circle me-1"></i> Limpiar Filtro
-                </a>
-                {% endif %}
+        <!-- FILTROS Y CONTADORES POR ESCÁNER -->
+        <div class="content-card mb-4 p-3">
+            <form method="GET" action="/project/{{ project.id }}" id="filterForm" class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                <input type="hidden" name="scanner" id="scannerInput" value="{{ selected_scanner or '' }}">
+
+                <!-- TABS DE ESCÁNER CON CONTADORES -->
+                <div class="nav nav-pills nav-pills-custom d-flex gap-2">
+                    <button type="button" class="nav-link {% if not selected_scanner %}active{% endif %}" onclick="setScanner('')">
+                        <i class="bi bi-layers me-1"></i> Todos los Escáneres
+                        <span class="badge bg-light text-dark ms-1">{{ total_count }}</span>
+                    </button>
+                    <button type="button" class="nav-link {% if selected_scanner == 'semgrep' %}active{% endif %}" onclick="setScanner('semgrep')">
+                        <i class="bi bi-search me-1"></i> Semgrep (SAST)
+                        <span class="badge bg-light text-dark ms-1">{{ semgrep_count }}</span>
+                    </button>
+                    <button type="button" class="nav-link {% if selected_scanner == 'trivy' %}active{% endif %}" onclick="setScanner('trivy')">
+                        <i class="bi bi-shield-check me-1"></i> Trivy (SCA)
+                        <span class="badge bg-light text-dark ms-1">{{ trivy_count }}</span>
+                    </button>
+                </div>
+
+                <!-- FILTRO DE SEVERIDAD -->
+                <div class="d-flex align-items-center gap-2">
+                    <label class="text-secondary small fw-bold mb-0 text-nowrap"><i class="bi bi-funnel-fill text-primary"></i> Severidad:</label>
+                    <select class="form-select form-select-sm" name="severity" onchange="this.form.submit()" style="min-width: 180px;">
+                        <option value="">-- Todas --</option>
+                        <option value="HIGH" {% if selected_severity == 'HIGH' %}selected{% endif %}>🔴 Críticos / Altos</option>
+                        <option value="MEDIUM" {% if selected_severity == 'MEDIUM' %}selected{% endif %}>🟡 Medios</option>
+                        <option value="LOW" {% if selected_severity == 'LOW' %}selected{% endif %}>🟢 Bajos</option>
+                    </select>
+
+                    {% if selected_scanner or selected_severity %}
+                    <a href="/project/{{ project.id }}" class="btn btn-sm btn-outline-secondary text-nowrap">
+                        <i class="bi bi-x-circle me-1"></i> Limpiar
+                    </a>
+                    {% endif %}
+                </div>
             </form>
         </div>
 
-        <div class="row g-4 mb-4">
-            <!-- TABLA SEMGREP SAST -->
-            <div class="col-lg-6">
-                <div class="content-card mb-0 h-100">
-                    <h5 class="fw-bold text-dark mb-3">🔍 Hallazgos Semgrep (SAST) - Total: {{ semgrep_findings|length }}</h5>
-                    <div class="table-responsive">
-                        <table class="table table-custom align-middle">
-                            <thead>
-                                <tr>
-                                    <th>Severidad</th>
-                                    <th>Regla</th>
-                                    <th>Ubicación</th>
-                                    <th class="text-end">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for f in semgrep_findings %}
-                                <tr>
-                                    <td>
-                                        {% if f.severity in ['ERROR', 'HIGH', 'CRITICAL'] %}<span class="badge bg-danger">HIGH</span>
-                                        {% elif f.severity in ['WARNING', 'MEDIUM'] %}<span class="badge bg-warning text-dark">MEDIUM</span>
-                                        {% else %}<span class="badge bg-success">LOW</span>{% endif %}
-                                    </td>
-                                    <td style="max-width: 180px; word-break: break-word;"><code class="text-primary small">{{ f.rule_id }}</code></td>
-                                    <td><small class="text-secondary font-monospace">{{ f.file_path or 'General' }}{% if f.line_number %}:{{ f.line_number }}{% endif %}</small></td>
-                                    <td class="text-end">
-                                        <button type="button" class="btn btn-sm btn-outline-primary btn-view-finding"
-                                            data-project="{{ project.name }}"
-                                            data-scanner="{{ f.scanner }}"
-                                            data-severity="{{ f.severity }}"
-                                            data-rule="{{ f.rule_id }}"
-                                            data-path="{{ f.file_path or '' }}"
-                                            data-line="{{ f.line_number or '' }}"
-                                            data-message="{{ f.description or '' }}"
-                                            data-snippet="{{ f.code_snippet or '' }}">
-                                            🔍 Recomendación
-                                        </button>
-                                    </td>
-                                </tr>
-                                {% else %}
-                                <tr><td colspan="4" class="text-muted text-center py-4">No hay hallazgos SAST.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+        <!-- TABLA ÚNICA UNIFICADA DE HALLAZGOS -->
+        <div class="content-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold text-dark mb-0">📋 Lista Consolidada de Hallazgos ({{ findings|length }} resultados)</h5>
             </div>
 
-            <!-- TABLA TRIVY SCA -->
-            <div class="col-lg-6">
-                <div class="content-card mb-0 h-100">
-                    <h5 class="fw-bold text-dark mb-3">🛡️ Hallazgos Trivy (SCA/Vulnerabilidades) - Total: {{ trivy_findings|length }}</h5>
-                    <div class="table-responsive">
-                        <table class="table table-custom align-middle">
-                            <thead>
-                                <tr>
-                                    <th>Severidad</th>
-                                    <th>CVE / ID</th>
-                                    <th>Mensaje</th>
-                                    <th class="text-end">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for f in trivy_findings %}
-                                <tr>
-                                    <td>
-                                        {% if f.severity in ['CRITICAL', 'HIGH'] %}<span class="badge bg-danger">{{ f.severity }}</span>
-                                        {% elif f.severity == 'MEDIUM' %}<span class="badge bg-warning text-dark">MEDIUM</span>
-                                        {% else %}<span class="badge bg-success">{{ f.severity }}</span>{% endif %}
-                                    </td>
-                                    <td style="max-width: 150px; word-break: break-word;"><code class="text-primary small">{{ f.rule_id }}</code></td>
-                                    <td style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><small class="text-dark">{{ f.description }}</small></td>
-                                    <td class="text-end">
-                                        <button type="button" class="btn btn-sm btn-outline-primary btn-view-finding"
-                                            data-project="{{ project.name }}"
-                                            data-scanner="{{ f.scanner }}"
-                                            data-severity="{{ f.severity }}"
-                                            data-rule="{{ f.rule_id }}"
-                                            data-path="{{ f.file_path or '' }}"
-                                            data-line="{{ f.line_number or '' }}"
-                                            data-message="{{ f.description or '' }}"
-                                            data-snippet="{{ f.code_snippet or '' }}">
-                                            🔍 Recomendación
-                                        </button>
-                                    </td>
-                                </tr>
+            <div class="table-responsive">
+                <table class="table table-custom align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width: 12%;">Herramienta</th>
+                            <th style="width: 12%;">Severidad</th>
+                            <th style="width: 25%;">Regla / CVE / ID</th>
+                            <th style="width: 20%;">Ubicación en Código</th>
+                            <th style="width: 21%;">Mensaje / Detalle</th>
+                            <th style="width: 10%;" class="text-end">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in findings %}
+                        <tr>
+                            <td>
+                                {% if f.scanner == 'semgrep' %}
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle">SEMGREP</span>
                                 {% else %}
-                                <tr><td colspan="4" class="text-muted text-center py-4">No hay vulnerabilidades SCA.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                                    <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle">TRIVY</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if f.severity in ['CRITICAL', 'HIGH', 'ERROR'] %}
+                                    <span class="badge bg-danger">HIGH / CRITICAL</span>
+                                {% elif f.severity in ['MEDIUM', 'WARNING'] %}
+                                    <span class="badge bg-warning text-dark">MEDIUM</span>
+                                {% else %}
+                                    <span class="badge bg-success">LOW / INFO</span>
+                                {% endif %}
+                            </td>
+                            <td style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                <code class="text-primary small" title="{{ f.rule_id }}">{{ f.rule_id }}</code>
+                            </td>
+                            <td style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                <small class="text-secondary font-monospace" title="{{ f.file_path or '' }}{% if f.line_number %}:{{ f.line_number }}{% endif %}">
+                                    {{ f.file_path or 'General' }}{% if f.line_number %}:{{ f.line_number }}{% endif %}
+                                </small>
+                            </td>
+                            <td style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                <small class="text-dark" title="{{ f.description or '' }}">{{ f.description or 'Sin descripción' }}</small>
+                            </td>
+                            <td class="text-end text-nowrap">
+                                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold btn-view-finding px-2 py-1"
+                                    data-project="{{ project.name }}"
+                                    data-scanner="{{ f.scanner }}"
+                                    data-severity="{{ f.severity }}"
+                                    data-rule="{{ f.rule_id }}"
+                                    data-path="{{ f.file_path or '' }}"
+                                    data-line="{{ f.line_number or '' }}"
+                                    data-message="{{ f.description or '' }}"
+                                    data-snippet="{{ f.code_snippet or '' }}">
+                                    🔍 Ver
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="6" class="text-muted text-center py-4">No se encontraron hallazgos con los filtros seleccionados.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </main>
@@ -332,6 +336,11 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        function setScanner(scannerValue) {
+            document.getElementById('scannerInput').value = scannerValue;
+            document.getElementById('filterForm').submit();
+        }
+
         document.querySelectorAll('.btn-view-finding').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 const project = btn.getAttribute('data-project');
