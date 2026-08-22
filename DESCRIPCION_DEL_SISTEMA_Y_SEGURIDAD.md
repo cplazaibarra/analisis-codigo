@@ -2,7 +2,7 @@
 ## *Visión General, Buenas Prácticas de Desarrollo Seguro y Gestión del Riesgo en la Cadena de Suministro*
 
 **Documento Técnico-Comercial y de Gobierno de Seguridad**  
-**Versión:** 2.0  
+**Versión:** 2.1 (Conectividad Cifrada HTTPS y Gestión Centralizada de Hallazgos)  
 **Audiencia:** Gerencia de TI/Ciberseguridad, Líderes Técnicos, Auditores y Clientes  
 
 ---
@@ -11,9 +11,9 @@
 
 El **Portal Central de Escaneo de Código (SCAN-CODE)** es una plataforma de gobierno y auditoría de seguridad que automatiza la inspección de vulnerabilidades en todo el ciclo de vida del desarrollo de software (*SDLC - Software Development Life Cycle*).
 
-Su propósito principal es actuar como un **guardián automatizado de calidad y seguridad**, inspeccionando de forma centralizada y continua todos los repositorios alojados en **GitLab** mediante dos disciplinas esenciales de ciberseguridad:
+Su propósito principal es actuar como un **guardián automatizado de calidad y seguridad**, inspeccionando de forma centralizada, continua y cifrada (**HTTPS**) todos los repositorios alojados en **GitLab** mediante dos disciplinas esenciales de ciberseguridad:
 
-1. **SAST (*Static Application Security Testing* - Semgrep):** Inspecciona el código fuente escrito por los desarrolladores para identificar defectos de programación, malas prácticas, funciones inseguras o secretos expuestos.
+1. **SAST (*Static Application Security Testing* - Semgrep):** Inspecciona el código fuente escrito por los desarrolladores para identificar defectos de programación, malas prácticas, funciones inseguras de memoria o secretos expuestos.
 2. **SCA (*Software Composition Analysis* - Trivy):** Audita todas las librerías, módulos y componentes de terceros (*Open Source*) para detectar vulnerabilidades conocidas (CVEs) y obsolescencia tecnológica.
 
 ```mermaid
@@ -22,7 +22,7 @@ flowchart LR
         DEV["Desarrolladores"] -->|git push| GL["GitLab Enterprise"]
     end
 
-    subgraph Plataforma ["2. Plataforma SCAN-CODE"]
+    subgraph Plataforma ["2. Plataforma SCAN-CODE (HTTPS)"]
         SC["Motor Central SCAN-CODE"]
         SAST["SAST (Semgrep) - Código Propio"]
         SCA["SCA (Trivy) - Código Terceros"]
@@ -120,8 +120,8 @@ graph TD
    Evita la exfiltración de credenciales, información financiera o datos personales que puedan comprometer la confidencialidad del cliente o generar sanciones legales millonarias.
 3. **Garantía y Confianza Comercial:**  
    Entregar software respaldado por un reporte de escaneo limpio certifica que la organización aplica las mejores prácticas de ingeniería de software a nivel internacional.
-4. **Facilidad de Integración en Entornos Corporativos:**  
-   Las grandes corporaciones exigen hoy en día reportes de auditoría de código previo a la aceptación en sus entornos de producción. SCAN-CODE permite emitir estos reportes de forma instantánea.
+4. **Comunicaciones Seguras y Cifradas:**  
+   La plataforma opera bajo el protocolo **HTTPS con certificados SSL/TLS**, protegiendo el acceso y la gestión de credenciales en todo momento.
 
 ---
 
@@ -129,11 +129,12 @@ graph TD
 
 | Capacidad | Funcionalidad en SCAN-CODE | Impacto en el Negocio |
 | :--- | :--- | :--- |
+| **Acceso Seguro HTTPS** | Conexión cifrada SSL/TLS (RSA 4096-bit). | Garantiza la confidencialidad en el acceso y manejo de credenciales. |
 | **Escaneo SAST Continuo** | Análisis de sintaxis y código propio con Semgrep. | Erradica fallos de codificación desde el origen. |
 | **Escaneo SCA de Dependencias** | Detección de CVEs y dependencias obsoletas con Trivy. | Protege la cadena de suministro de software. |
 | **Escaneo Automático Nocturno** | Demonio planificador diario a las **`02:00 AM`**. | Garantiza que todo el repositorio amanezca siempre auditado. |
-| **Recomendaciones Claras** | Botón **`🔍 Ver Recomendación`** con solución paso a paso. | Reduce drásticamente el tiempo medio de reparación (*MTTR*). |
-| **Reportes y Filtros Avanzados** | Vistas globales por Proyecto, Severidad y Escáner. | Facilita la toma de decisiones gerenciales y auditorías. |
+| **Lista Unificada con Contadores** | Vista consolidada por proyecto con filtros de escáner en vivo. | Simplifica la visualización simultánea de todos los hallazgos. |
+| **Recomendaciones Claras** | Botón **`🔍 Ver`** con solución paso a paso. | Reduce drásticamente el tiempo medio de reparación (*MTTR*). |
 | **Integración GitLab & LDAP** | Conexión segura vía API REST v4 y Directorio Activo. | Integración nativa con la infraestructura corporativa existente. |
 
 ---

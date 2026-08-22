@@ -1,19 +1,19 @@
 # Manual de Operación: Portal Central de Escaneo de Código (SCAN-CODE)
 
-**Versión del Sistema:** 2.0  
+**Versión del Sistema:** 2.1 (Actualizado con HTTPS, Vista Unificada y Programación Diaria)  
 **Fecha:** Agosto 2026  
-**Destinatarios:** Operadores de Seguridad, Administradores de Infraestructura y Desarrolladores  
+**Audiencia:** Operadores de Seguridad, Administradores de Infraestructura y Desarrolladores  
 
 ---
 
-## 1. Arquitectura y Ubicación del Sistema
+## 1. Resumen Ejecutivo y Arquitectura del Sistema
 
-El **Portal Central de Escaneo de Código (SCAN-CODE)** es una plataforma web desarrollada en Python (Flask) y PostgreSQL que centraliza la auditoría de seguridad estática (SAST) y análisis de dependencias (SCA) para todos los repositorios corporativos.
+El **Portal Central de Escaneo de Código (SCAN-CODE)** es una plataforma de gobierno y auditoría de seguridad que automatiza la inspección de vulnerabilidades en todo el ciclo de vida del desarrollo de software (*SDLC*).
 
 ```mermaid
 flowchart TD
     subgraph Servidor Central ["Servidor Central (172.27.103.42)"]
-        UI["Portal Web Flask (:5000)"]
+        UI["Portal Web Seguro HTTPS Flask (:5000)"]
         DB[(PostgreSQL scancode)]
         SCHED["Demonio de Programación Diaria (02:00 AM)"]
         ENG_SAST["Motor SAST: Semgrep"]
@@ -30,138 +30,147 @@ flowchart TD
     SCHED --> ENG_SCA
     UI --> ENG_SAST
     UI --> ENG_SCA
-    ENG_SAST & ENG_SCA <-- "API v4 / Git Clone (PAT Token)" --> GL
+    ENG_SAST & ENG_SCA <-- "API REST v4 / Git Clone (PAT Token Seguro)" --> GL
     UI <-- "Autenticación de Usuarios" --> LDAP
 ```
 
-### 📍 Datos de Instalación
+### 📍 Datos de Instalación y Acceso Seguro
 - **Servidor:** `172.27.103.42`
-- **Ruta de la Aplicación:** `/data/central-scanner/`
+- **Ruta de Instalación:** `/data/central-scanner/`
 - **Servicio Systemd:** `central-scanner.service` (Ejecutado bajo el usuario `mquser`)
 - **Base de Datos:** PostgreSQL local (`postgresql://scancode:scancode_pass@localhost:5432/scancode`)
-- **Puerto de Acceso Web:** `http://172.27.103.42:5000/`
+- **Protocolo y Acceso Web Seguro:** **`https://172.27.103.42:5000/`** (Cifrado con certificados SSL/TLS RSA-4096).
 
 ---
 
-## 2. Conexión y Comunicación con GitLab
+## 2. Conectividad e Integración con GitLab
 
-### 🔗 Protocolo y Autenticación
-SCAN-CODE se comunica con la instancia de GitLab (`http://192.168.2.121/gitlab`) a través de la **API REST v4**:
+### 🔗 Protocolo y Autenticación Segura
+SCAN-CODE interactúa con la instancia corporativa de GitLab (`http://192.168.2.121/gitlab`) utilizando la **API REST v4**:
 
 1. **Personal Access Token (PAT):**  
-   Utiliza un token emitido en GitLab con permisos de lectura (`read_api`, `read_repository`).
-2. **Seguridad y Enmascaramiento:**  
-   En la interfaz web, el token se almacena cifrado y se muestra protegido con máscara (`glpat-••••••••••••yf1r`) para evitar filtraciones visuales.
-3. **Prueba de Conexión en Vivo:**  
-   Desde **Configuración > Integraciones GitLab**, el botón **`⚡ Probar Conexión`** realiza una llamada en segundo plano a la API de GitLab (`/api/v4/version`) y actualiza el estado (`🟢 Conectado` / `🔴 Error`) sin recargar la página.
+   Requiere un token emitido en GitLab con permisos de lectura (`read_api`, `read_repository`).
+2. **Protección y Enmascaramiento de Credenciales:**  
+   En los formularios y modales de edición, los tokens se almacenan cifrados y se muestran protegidos con máscara (`glpat-••••••••••••yf1r`) dentro del campo de texto. Si el operador no modifica el campo, el token original se mantiene intacto; si escribe un nuevo valor, se actualiza automáticamente.
+3. **Prueba de Conexión en Tiempo Real:**  
+   Desde **Configuración > Integraciones GitLab**, el botón **`⚡ Probar Conexión`** realiza una llamada asíncrona (AJAX) a `/api/v4/version` para certificar la conexión en tiempo real sin recargar la página.
 
 ---
 
-## 3. Motores de Seguridad Utilizados
+## 3. Motores de Seguridad y Reglas de Análisis
 
-El servidor ejecuta dos motores de escaneo independientes instalados en el sistema operativo base:
+El servidor ejecuta dos motores de escaneo independientes instalados directamente en el sistema operativo base:
 
-| Motor | Tipo | Función | ¿Qué detecta? |
+| Motor | Tipo de Análisis | ¿Qué analiza? | Ejemplos de Detección |
 | :--- | :--- | :--- | :--- |
-| **Semgrep** | **SAST** *(Código Fuente)* | Analiza la sintaxis y lógica del código (C, Python, Go, Java, JS, etc.). | Inyecciones, llamadas a funciones inseguras (`strcpy`, `sprintf`), credenciales expuestas en código, desbordamientos de memoria. |
-| **Trivy** | **SCA** *(Dependencias)* | Inspecciona los archivos de dependencias (`go.mod`, `requirements.txt`, `package.json`, etc.). | CVEs públicos conocidos en librerías de terceros y entrega la versión exacta de solución. |
+| **Semgrep** | **SAST** *(Static Application Security Testing)* | Código fuente en C, Go, Python, Java, JavaScript, etc. | Inyecciones SQL/Comandos, llamadas a funciones inseguras de memoria (`strcpy`, `sprintf`), credenciales quemadas (*hardcoded secrets*), desreferencias nulas. |
+| **Trivy** | **SCA** *(Software Composition Analysis)* | Archivos de dependencias (`go.mod`, `requirements.txt`, `package.json`, `pom.xml`, etc.). | CVEs públicos conocidos en librerías de terceros y señala la versión exacta de solución para actualizar. |
 
 ---
 
-## 4. Flujo de Trabajo: ¿Qué pasa al hacer `git push` o corregir código?
+## 4. Flujo Operativo: ¿Qué pasa al hacer un `git push` o corregir código?
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Dev as Desarrollador
     participant GL as GitLab MQuest
-    participant SC as Portal SCAN-CODE
-    participant DB as Base de Datos
+    participant SC as Portal SCAN-CODE (HTTPS)
+    participant DB as Base de Datos PostgreSQL
 
-    Dev->>GL: git push (Sube código corregido o nueva versión)
-    Note over Dev,GL: La versión actualizada queda en GitLab
+    Dev->>GL: git push (Sube código corregido o nueva función)
+    Note over Dev,GL: La nueva versión del código queda en GitLab
     
     alt Escaneo Manual Inmediato
         actor Op as Operador / Dev
-        Op->>SC: Presiona "▶ Escanear" en el proyecto
+        Op->>SC: Clic en "▶ Escanear" en el proyecto
     else Escaneo Automático Nocturno
-        SC->>SC: Ejecución automática a las 02:00 AM
+        SC->>SC: Demonio ejecuta escaneo a las 02:00 AM
     end
 
     SC->>GL: Descarga el último commit vía API / Git Clone
     SC->>SC: Ejecuta Semgrep (SAST) + Trivy (SCA)
-    SC->>DB: Actualiza la lista de hallazgos
-    Note over SC,DB: Las vulnerabilidades resueltas se eliminan<br/>Los contadores de severidad bajan a 0
-    SC-->>Dev: Dashboard actualizado con estado verde
+    SC->>DB: Actualiza la tabla de hallazgos
+    Note over SC,DB: Las vulnerabilidades solucionadas desaparecen<br/>Los contadores Crítico/Medio/Bajo disminuyen a cero
+    SC-->>Dev: Dashboard actualizado con estado verde y 0 alarmas
 ```
 
-### 🔄 Ciclo de Vida de una Corrección:
-1. **Detección Inicial:** El portal detecta una vulnerabilidad (ej: librería `golang.org/x/net v0.2.0`).
-2. **Consulta de Recomendación:** En el portal se hace clic en **`🔍 Ver Recomendación`** y se lee la sugerencia (ej: *Actualizar a versión v0.38.0*).
-3. **Corrección en Código:** El desarrollador actualiza el archivo en su entorno y hace `git push` a GitLab.
-4. **Validación:** Al presionar **`▶ Escanear`** (o en el escaneo nocturno), el sistema descarga la nueva versión, valida la ausencia del fallo, **elimina la alerta de la base de datos** y reduce el contador de alarmas.
+### 🔄 Ciclo de Vida de una Vulnerabilidad:
+1. **Detección Inicial:** El portal detecta un fallo (ej: `strcpy()` inseguro o librería vulnerable `golang.org/x/net v0.2.0`).
+2. **Revisión de la Recomendación:** En el portal se hace clic en **`🔍 Ver`** y se revisa la sugerencia técnica de solución (ej: *Actualizar a versión v0.38.0*).
+3. **Corrección en Código:** El desarrollador aplica el cambio en su entorno de trabajo y hace `git push` a GitLab.
+4. **Validación Automática:** Al pulsar **`▶ Escanear`** (o en el barrido diario de las 02:00 AM), el sistema descarga la nueva versión, confirma la corrección, **elimina la alerta de la base de datos** y reduce el contador de alarmas en el panel.
 
 ---
 
 ## 5. Programación de Escaneo Automático Diario (02:00 AM)
 
-El sistema cuenta con un demonio interno (*Background Thread Scheduler*):
+El sistema cuenta con un demonio interno en segundo plano (*Background Thread Scheduler*):
 
-- **Ruta en el Menú:** `Configuración` ➡️ `Programación Escaneo` (`/settings/schedule`).
-- **Hora Predeterminada:** **`02:00` AM** todos los días.
-- **Operación:** A la hora fijada, el sistema recorre secuencialmente todos los repositorios registrados, descarga la última versión y re-evalúa todas las vulnerabilidades.
-- **Botón `⚡ Ejecutar Escaneo Programado Ahora`:** Permite al operador forzar un barrido global de todos los proyectos en cualquier momento.
+- **Ruta de Configuración:** `Configuración` ➡️ `Programación Escaneo` (`/settings/schedule`).
+- **Hora Predeterminada:** **`02:00` AM** todos los días (configurable en formato 24h).
+- **Operación Desatendida:** A la hora fijada, el sistema recorre secuencialmente todos los repositorios registrados, descarga la última versión y re-evalúa todas las vulnerabilidades.
+- **Ejecución Forzada:** El botón **`⚡ Ejecutar Escaneo Programado Ahora`** permite forzar un barrido global inmediato de todos los proyectos.
 
 ---
 
-## 6. Guía de Operación para el Usuario
+## 6. Guía de Uso de la Interfaz Web
 
 ```
 ├── 🏠 Resumen                -> Métricas globales y tabla de proyectos con botón de escaneo
 ├── 📥 Importar               -> Vinculación de nuevos proyectos desde GitLab
-├── 📄 Reportes               -> Matriz general de vulnerabilidades con filtros y recomendaciones
+├── 📄 Reportes               -> Matriz de todas las vulnerabilidades con filtros y recomendaciones
 ├── 👥 Usuarios               -> Gestión de usuarios locales y autenticación LDAP
-└── ⚙️ Configuración (Desplegable)
-    ├── 🦊 Integraciones GitLab     -> Configuración de URL y Tokens PAT
-    └── 🗓️ Programación Escaneo     -> Activar/desactivar y definir la hora del escaneo diario
+└── ⚙️ Configuración (Menú desplegable)
+    ├── 🦊 Integraciones GitLab     -> Servidores GitLab, URL y Personal Access Tokens (PAT)
+    └── 🗓️ Programación Escaneo     -> Interruptor y hora fija del escaneo diario
 ```
 
-### A. Resumen (`/`)
-- Permite ver el total de proyectos y el consolidado de vulnerabilidades clasificadas en:
-  - **Rojo:** Críticos / Altos
-  - **Naranja:** Medios
-  - **Verde:** Bajos
-- Permite ejecutar escaneos individuales con **`▶ Escanear`** o ver el detalle con **`📊 Ver Reporte`**.
+### A. Pantalla de Resumen (`/`)
+- **Tarjetas Superiores:** Total de proyectos registrados, total de alarmas Críticas/Altas (rojo), Medias (naranja) y Bajas (verde).
+- **Tabla de Proyectos:**
+  - **Botón `▶ Escanear`:** Dispara el escaneo individual del proyecto en tiempo real.
+  - **Botón `📊 Ver Reporte`:** Abre el desglose consolidado del proyecto (`/project/<id>`).
 
-### B. Reportes (`/findings`)
-- Permite filtrar por Proyecto, Severidad y Escáner.
-- Cada fila incluye el botón **`🔍 Ver`**, que abre un modal con:
-  - Regla / ID de la vulnerabilidad.
-  - Archivo y número de línea.
-  - Explicación del problema y solución recomendada.
-  - Fragmento de código fuente afectado.
+### B. Vista de Detalle de Proyecto (`/project/<id>`)
+- **Filtros por Escáner con Contadores:**
+  - `🌐 Todos los Escáneres (Total: X)` *(Vista simultánea por defecto)*
+  - `🔍 Semgrep (SAST) (Total: Y)`
+  - `🛡️ Trivy (SCA) (Total: Z)`
+- **Filtro de Severidad:** Desplegable para aislar fallos `Críticos / Altos`, `Medios` o `Bajos`.
+- **Tabla Única Consolidada:** Lista completa con Herramienta, Severidad, Regla/CVE, Archivo/Línea y botón **`🔍 Ver`**.
 
-### C. Usuarios (`/users`)
-- **Pestaña 1:** Creación y borrado de operadores locales.
-- **Pestaña 2:** Configuración de enlace con servidor LDAP / Active Directory.
+### C. Reportes Globales (`/findings`)
+- Permite filtrar por Proyecto, Severidad y Escáner en todos los repositorios.
+- Cada fila incluye el botón **`🔍 Ver`**, que abre un modal con la regla, archivo, línea, fragmento de código y recomendación de solución.
+
+### D. Gestión de Usuarios (`/users`)
+- **Pestaña 1 (Usuarios Locales):** Creación y administración de operadores locales.
+- **Pestaña 2 (Autenticación LDAP):** Configuración de enlace con Directorio Activo (`ldap://ip:389`, Search Base, Bind DN, filtro de grupo requerido).
 
 ---
 
-## 7. Mantenimiento y Comandos del Servidor
+## 7. Mantenimiento y Comandos de Soporte para Operadores
 
-Acceso por terminal SSH:
+Acceso por terminal SSH al servidor:
 ```bash
 ssh mquser@172.27.103.42
 ```
 
 ### Comandos de Operación:
 ```bash
-# Estado del servicio
+# Ver estado del servicio
 systemctl --user status central-scanner.service
 
 # Reiniciar la aplicación
 systemctl --user restart central-scanner.service
 
-# Ver logs en tiempo real
+# Ver logs en vivo en tiempo real
 journalctl --user-unit=central-scanner.service -f -n 50
+```
+
+### Verificación de Certificados SSL:
+```bash
+# Certificado y llave privada ubicados en:
+ls -la /data/central-scanner/cert.pem /data/central-scanner/key.pem
 ```
