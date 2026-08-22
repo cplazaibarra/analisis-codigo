@@ -7,7 +7,7 @@ from scanner import scan_project_repository
 
 app = Flask(__name__)
 app.secret_key = "scan_code_central_key_123"
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///scanner.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://scancode:scancode_pass@localhost:5432/scancode'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -67,6 +67,14 @@ class Finding(db.Model):
     title = db.Column(db.String(255))
     
     project = db.relationship('Project', backref=db.backref('findings', cascade="all, delete-orphan"))
+
+class ScanSchedule(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    enabled = db.Column(db.Boolean, default=False)
+    execution_time = db.Column(db.String(10), default="02:00")
+    last_run = db.Column(db.String(50))
+    status = db.Column(db.String(255), default="Esperando horario programado")
+
 
 # --- RUTAS DE LA APLICACIÓN ---
 
@@ -152,7 +160,7 @@ def authenticate_ldap(username, password, config):
 # Hook: Requerir Login en rutas protegidas
 @app.before_request
 def require_login():
-    allowed_endpoints = ['login', 'static', 'api_findings']
+    allowed_endpoints = ['login', 'static', 'api_findings', 'api_test_integration', 'test_integration']
     if request.endpoint in allowed_endpoints:
         return
     if not session.get('user_id'):
@@ -217,11 +225,37 @@ def logout():
     flash("Sesión cerrada con éxito", "info")
     return redirect(url_for('login'))
 
+
+@app.route('/users')
+@app.route('/settings/users')
+def users_page():
+    if not session.get('user_id'):
+        return redirect(url_for('login'))
+    users = User.query.all()
+    ldap_config = LdapConfig.query.first()
+    if not ldap_config:
+        ldap_config = LdapConfig()
+        db.session.add(ldap_config)
+        db.session.commit()
+    return render_template('users.html', users=users, ldap_config=ldap_config)
+
+@app.route('/settings/ldap/update', methods=['POST'])
+
+@app.route('/ldap')
+@app.route('/settings/ldap')
+def ldap_settings():
+    config = LdapConfig.query.first()
+    if not config:
+        config = LdapConfig()
+        db.session.add(config)
+        db.session.commit()
+    return render_template('ldap.html', ldap_config=config)
+
 @app.route('/settings/ldap/update', methods=['POST'])
 def update_ldap_config():
     if not session.get('is_admin'):
         flash("Solo administradores pueden realizar esta acción", "danger")
-        return redirect(url_for('settings'))
+        return redirect(url_for('users_page'))
         
     config = LdapConfig.query.first()
     if not config:
@@ -243,13 +277,13 @@ def update_ldap_config():
     
     db.session.commit()
     flash("Configuración LDAP guardada con éxito", "success")
-    return redirect(url_for('settings'))
+    return redirect(url_for('users_page'))
 
 @app.route('/settings/user/add', methods=['POST'])
 def add_local_user():
     if not session.get('is_admin'):
         flash("Solo administradores pueden realizar esta acción", "danger")
-        return redirect(url_for('settings'))
+        return redirect(url_for('users_page'))
         
     username = request.form.get('username')
     password = request.form.get('password')
@@ -258,11 +292,11 @@ def add_local_user():
     
     if not username or not password:
         flash("Usuario y contraseña son obligatorios", "danger")
-        return redirect(url_for('settings'))
+        return redirect(url_for('users_page'))
         
     if User.query.filter_by(username=username).first():
         flash("El nombre de usuario ya está registrado", "danger")
-        return redirect(url_for('settings'))
+        return redirect(url_for('users_page'))
         
     new_user = User(
         username=username,
@@ -274,25 +308,61 @@ def add_local_user():
     db.session.add(new_user)
     db.session.commit()
     flash(f"Usuario {username} creado con éxito", "success")
-    return redirect(url_for('settings'))
+    return redirect(url_for('users_page'))
 
 @app.route('/settings/user/delete/<int:id>', methods=['POST'])
 def delete_local_user(id):
     if not session.get('is_admin'):
         flash("Solo administradores pueden realizar esta acción", "danger")
-        return redirect(url_for('settings'))
+        return redirect(url_for('users_page'))
         
     user = User.query.get_or_404(id)
     if user.id == session.get('user_id'):
         flash("No puedes eliminar tu propio usuario administrador", "danger")
-        return redirect(url_for('settings'))
+        return redirect(url_for('users_page'))
         
     db.session.delete(user)
     db.session.commit()
     flash("Usuario eliminado", "info")
-    return redirect(url_for('settings'))
+    return redirect(url_for('users_page'))
+
+@app.route('/findings')
+def view_findings():
+    if not session.get('user_id'):
+        return redirect(url_for('login'))
+    
+    project_id = request.args.get('project_id', type=int)
+    severity = request.args.get('severity')
+    scanner = request.args.get('scanner')
+
+    query = Finding.query
+
+    if project_id:
+        query = query.filter_by(project_id=project_id)
+    if severity:
+        if severity == 'HIGH':
+            query = query.filter(Finding.severity.in_(['HIGH', 'CRITICAL', 'ERROR']))
+        elif severity == 'MEDIUM':
+            query = query.filter(Finding.severity.in_(['MEDIUM', 'WARNING']))
+        elif severity == 'LOW':
+            query = query.filter(Finding.severity.in_(['LOW', 'INFO', 'NOTE']))
+        else:
+            query = query.filter_by(severity=severity)
+    if scanner:
+        query = query.filter_by(scanner=scanner)
+
+    findings = query.order_by(Finding.id.desc()).all()
+    projects = Project.query.all()
+
+    return render_template('findings.html', 
+                           findings=findings, 
+                           projects=projects,
+                           selected_project=project_id,
+                           selected_severity=severity,
+                           selected_scanner=scanner)
 
 @app.route('/')
+
 def index():
     projects = Project.query.all()
     # Calcular métricas globales
@@ -353,7 +423,7 @@ def add_integration():
     
     if not name or not url or not token:
         flash("Todos los campos son obligatorios", "danger")
-        return redirect(url_for('settings'))
+        return redirect(url_for('users_page'))
         
     integration = GitLabIntegration(name=name, url=url, token=token)
     db.session.add(integration)
@@ -363,7 +433,7 @@ def add_integration():
     test_integration_conn(integration.id)
     
     flash("Instancia de GitLab agregada con éxito", "success")
-    return redirect(url_for('settings'))
+    return redirect(url_for('users_page'))
 
 @app.route('/settings/integration/edit/<int:id>', methods=['POST'])
 def edit_integration(id):
@@ -374,11 +444,11 @@ def edit_integration(id):
     
     if not name or not url:
         flash("El nombre y la URL son requeridos", "danger")
-        return redirect(url_for('settings'))
+        return redirect(url_for('users_page'))
         
     integration.name = name
     integration.url = url
-    if token:
+    if token and '••••' not in token and '****' not in token:
         integration.token = token
         
     db.session.commit()
@@ -387,7 +457,7 @@ def edit_integration(id):
     test_integration_conn(integration.id)
     
     flash("Instancia de GitLab actualizada con éxito", "success")
-    return redirect(url_for('settings'))
+    return redirect(url_for('users_page'))
 
 @app.route('/settings/integration/delete/<int:id>', methods=['POST'])
 def delete_integration(id):
@@ -395,7 +465,7 @@ def delete_integration(id):
     db.session.delete(integration)
     db.session.commit()
     flash("Instancia de GitLab eliminada", "info")
-    return redirect(url_for('settings'))
+    return redirect(url_for('users_page'))
 
 @app.route('/settings/integration/test/<int:id>', methods=['POST'])
 def test_integration(id):
@@ -404,7 +474,7 @@ def test_integration(id):
         flash("¡Conexión exitosa con la API de GitLab!", "success")
     else:
         flash(f"Error al conectar con GitLab: {status}", "danger")
-    return redirect(url_for('settings'))
+    return redirect(url_for('users_page'))
 
 def make_gitlab_headers(token):
     """Auto-detect token type: OAuth (64-char hex) uses Bearer, PAT uses PRIVATE-TOKEN."""
@@ -430,6 +500,18 @@ def test_integration_conn(integration_id):
         db.session.commit()
         return str(e)
 
+
+@app.route('/import')
+def import_page():
+    integrations = GitLabIntegration.query.all()
+    if not integrations:
+        flash('No hay instancias de GitLab configuradas. Agrega una en Configuración primero.', 'warning')
+        return redirect(url_for('users_page'))
+    integration_id = request.args.get('integration_id', type=int)
+    if not integration_id or not GitLabIntegration.query.get(integration_id):
+        integration_id = integrations[0].id
+    return redirect(url_for('import_projects_list', id=integration_id))
+
 @app.route('/settings/integration/import/<int:id>')
 def import_projects_list(id):
     integration = GitLabIntegration.query.get_or_404(id)
@@ -439,7 +521,7 @@ def import_projects_list(id):
         response = requests.get(f"{integration.url}/api/v4/projects?membership=true&per_page=100", headers=headers, timeout=5)
         if response.status_code != 200:
             flash(f"Error al obtener proyectos: HTTP {response.status_code}", "danger")
-            return redirect(url_for('settings'))
+            return redirect(url_for('users_page'))
         
         gitlab_projects = response.json()
         
@@ -460,7 +542,7 @@ def import_projects_list(id):
         return render_template('import.html', integration=integration, projects=projects_to_show)
     except Exception as e:
         flash(f"Error de comunicación con GitLab: {e}", "danger")
-        return redirect(url_for('settings'))
+        return redirect(url_for('users_page'))
 
 @app.route('/settings/integration/import/<int:id>/save', methods=['POST'])
 def save_imported_projects(id):
@@ -503,13 +585,33 @@ def save_imported_projects(id):
 @app.route('/project/<int:id>')
 def project_detail(id):
     project = Project.query.get_or_404(id)
-    semgrep_findings = Finding.query.filter_by(project_id=id, scanner='semgrep').all()
-    trivy_findings = Finding.query.filter_by(project_id=id, scanner='trivy').all()
-    
-    return render_template('project.html', 
-                           project=project, 
-                           semgrep=semgrep_findings, 
-                           trivy=trivy_findings)
+    severity_filter = request.args.get('severity')
+
+    semgrep_query = Finding.query.filter_by(project_id=id, scanner='semgrep')
+    trivy_query = Finding.query.filter_by(project_id=id, scanner='trivy')
+
+    if severity_filter:
+        if severity_filter == 'HIGH':
+            semgrep_query = semgrep_query.filter(Finding.severity.in_(['HIGH', 'CRITICAL', 'ERROR']))
+            trivy_query = trivy_query.filter(Finding.severity.in_(['HIGH', 'CRITICAL', 'ERROR']))
+        elif severity_filter == 'MEDIUM':
+            semgrep_query = semgrep_query.filter(Finding.severity.in_(['MEDIUM', 'WARNING']))
+            trivy_query = trivy_query.filter(Finding.severity.in_(['MEDIUM', 'WARNING']))
+        elif severity_filter == 'LOW':
+            semgrep_query = semgrep_query.filter(Finding.severity.in_(['LOW', 'INFO', 'NOTE']))
+            trivy_query = trivy_query.filter(Finding.severity.in_(['LOW', 'INFO', 'NOTE']))
+        else:
+            semgrep_query = semgrep_query.filter_by(severity=severity_filter)
+            trivy_query = trivy_query.filter_by(severity=severity_filter)
+
+    semgrep_findings = semgrep_query.all()
+    trivy_findings = trivy_query.all()
+
+    return render_template('project.html',
+                           project=project,
+                           semgrep_findings=semgrep_findings,
+                           trivy_findings=trivy_findings,
+                           selected_severity=severity_filter)
 
 @app.route('/scan/<int:id>', methods=['POST'])
 def run_scan(id):
@@ -576,20 +678,31 @@ def run_scan(id):
 def get_findings():
     project_id = request.args.get('project_id')
     branch = request.args.get('branch')
-    
+    severity = request.args.get('severity')
+
     query = Finding.query
-    
+
     if project_id and project_id != 'all':
         query = query.filter_by(project_id=int(project_id))
-        
+
+    if severity and severity != 'all':
+        if severity == 'HIGH_CRITICAL':
+            query = query.filter(Finding.severity.in_(['HIGH', 'CRITICAL', 'ERROR']))
+        elif severity == 'MEDIUM_WARNING':
+            query = query.filter(Finding.severity.in_(['MEDIUM', 'WARNING']))
+        elif severity == 'LOW_INFO':
+            query = query.filter(Finding.severity.in_(['LOW', 'INFO']))
+        else:
+            query = query.filter(Finding.severity.ilike(severity))
+
     findings = query.all()
-    
+
     result = []
     for f in findings:
         f_branch = f.rule_id.split('.')[-1] if '.' in f.rule_id else 'unknown'
         if branch and branch != 'all' and f_branch != branch:
             continue
-            
+
         result.append({
             'id': f.id,
             'project_name': f.project.name,
@@ -599,58 +712,120 @@ def get_findings():
             'file_path': f.file_path,
             'line_number': f.line_number,
             'description': f.description,
-            'code_snippet': f.code_snippet,
-            'branch': f_branch
+            'code_snippet': f.code_snippet
         })
-        
+
     return jsonify(result)
 
-@app.route('/project/delete/<int:id>', methods=['POST'])
-def delete_project(id):
-    project = Project.query.get_or_404(id)
-    db.session.delete(project)
-    db.session.commit()
-    flash("Proyecto removido del portal", "info")
-    return redirect(url_for('index'))
+
+
+
+@app.route('/api/integration/test/<int:id>', methods=['POST'])
+def api_test_integration(id):
+    try:
+        status = test_integration_conn(id)
+        if status == 'Conectado':
+            return jsonify({'success': True, 'status': status, 'message': '¡Conexión exitosa con la API de GitLab!'})
+        else:
+            return jsonify({'success': False, 'status': status, 'message': f'Error al conectar con GitLab: {status}'})
+    except Exception as e:
+        return jsonify({'success': False, 'status': 'Error', 'message': f'Excepción: {str(e)}'})
+
+
+
+# --- PROGRAMACIÓN DE ESCANEO AUTOMÁTICO ---
+
+@app.route('/settings/gitlab')
+def settings_gitlab():
+    return redirect(url_for('settings'))
+
+@app.route('/settings/schedule', methods=['GET', 'POST'])
+def schedule_page():
+    if not session.get('user_id'):
+        return redirect(url_for('login'))
+
+    sched = ScanSchedule.query.first()
+    if not sched:
+        sched = ScanSchedule(enabled=False, execution_time="02:00", status="Inactivo")
+        db.session.add(sched)
+        db.session.commit()
+
+    if request.method == 'POST':
+        sched.enabled = 'enabled' in request.form
+        time_val = request.form.get('execution_time', '02:00')
+        sched.execution_time = time_val
+        sched.status = "Programado activo" if sched.enabled else "Desactivado"
+        db.session.commit()
+        flash("Configuración de escaneo programado actualizada con éxito", "success")
+        return redirect(url_for('schedule_page'))
+
+    return render_template('schedule.html', sched=sched)
+
+@app.route('/api/schedule/run_now', methods=['POST'])
+def run_schedule_now():
+    if not session.get('user_id'):
+        return jsonify({'success': False, 'message': 'No autorizado'}), 401
+
+    try:
+        sched = ScanSchedule.query.first()
+        if not sched:
+            sched = ScanSchedule(enabled=True, execution_time="02:00")
+            db.session.add(sched)
+
+        today_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        sched.last_run = today_str
+        sched.status = f"Escaneo manual ejecutado ({today_str})"
+        db.session.commit()
+
+        # Trigger scans
+        projects = Project.query.all()
+        scanned_count = 0
+        for p in projects:
+            try:
+                success, msg, s_f, t_f = scan_project_repository(p.http_url, p.integration.token, p.id)
+                if success:
+                    scanned_count += 1
+            except Exception as e:
+                print(f"Error scanning {p.name}: {e}")
+
+        return jsonify({'success': True, 'message': f'¡Escaneo global completado en {scanned_count} proyectos!'})
+    except Exception as err:
+        return jsonify({'success': False, 'message': f'Error al ejecutar escaneo: {str(err)}'})
+
+import threading, time
+
+def start_scheduler_thread():
+    def loop():
+        while True:
+            try:
+                with app.app_context():
+                    sched = ScanSchedule.query.first()
+                    if sched and sched.enabled:
+                        now_str = datetime.datetime.now().strftime("%H:%M")
+                        today_str = datetime.datetime.now().strftime("%Y-%m-%d")
+                        if now_str == sched.execution_time and (not sched.last_run or not sched.last_run.startswith(today_str)):
+                            sched.last_run = f"{today_str} {now_str}"
+                            sched.status = f"Escaneo automático en progreso ({now_str})..."
+                            db.session.commit()
+
+                            projects = Project.query.all()
+                            for p in projects:
+                                try:
+                                    scan_project_repository(p.http_url, p.integration.token, p.id)
+                                except Exception as e:
+                                    print(f"Error background scan {p.name}: {e}")
+
+                            sched.status = f"Último escaneo diario exitoso ({today_str} {now_str})"
+                            db.session.commit()
+            except Exception as ex:
+                print(f"Daemon exception: {ex}")
+            time.sleep(30)
+
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
+
+start_scheduler_thread()
+
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        # Migración en caliente para agregar columnas si no existen
-        try:
-            db.session.execute(db.text("ALTER TABLE ldap_config ADD COLUMN required_group VARCHAR(255) DEFAULT 'git'"))
-            db.session.commit()
-            print("Columna 'required_group' agregada con éxito")
-        except Exception:
-            db.session.rollback()
-            
-        # Inicializar usuario admin local
-        if not User.query.filter_by(username='admin').first():
-            admin = User(
-                username='admin',
-                password_hash=generate_password_hash('admin'),
-                email='admin@scan-code.local',
-                auth_source='local',
-                is_admin=True
-            )
-            db.session.add(admin)
-            db.session.commit()
-            print("Creado usuario admin por defecto")
-            
-        # Inicializar LdapConfig si no existe
-        if not LdapConfig.query.first():
-            ldap_conf = LdapConfig(
-                enabled=False,
-                server_url="ldap://127.0.0.1",
-                port=389,
-                bind_dn="cn=admin,dc=example,dc=com",
-                bind_password="admin",
-                search_base="dc=example,dc=com",
-                user_filter="(uid={username})",
-                required_group="git"
-            )
-            db.session.add(ldap_conf)
-            db.session.commit()
-            print("Configuración LDAP inicializada")
-            
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000)

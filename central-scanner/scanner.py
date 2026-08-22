@@ -99,9 +99,9 @@ def scan_project_repository(repo_url, token):
                 continue
                 
             home_dir = os.path.expanduser("~")
-            rules_path = os.path.join(home_dir, "semgrep-rules", "python")
+            rules_path = "p/security-audit"
             semgrep_res = subprocess.run(
-                ["semgrep", "scan", "--config", rules_path, "--json", "--metrics=off"],
+                ["semgrep", "scan", "--config", rules_path, "--json", "--metrics=on"],
                 cwd=temp_dir,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
