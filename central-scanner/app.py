@@ -828,4 +828,12 @@ start_scheduler_thread()
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    ssl_cert = '/data/central-scanner/cert.pem'
+    ssl_key = '/data/central-scanner/key.pem'
+    import os
+    if os.path.exists(ssl_cert) and os.path.exists(ssl_key):
+        print("Starting HTTPS server on https://0.0.0.0:5000")
+        app.run(host='0.0.0.0', port=5000, ssl_context=(ssl_cert, ssl_key))
+    else:
+        print("Starting HTTP server on http://0.0.0.0:5000")
+        app.run(host='0.0.0.0', port=5000)
